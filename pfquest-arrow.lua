@@ -117,8 +117,8 @@ pfQuest.route.arrow:SetScript("OnUpdate", function()
             local angle = math.rad(dir) - pfQuestCompat.GetPlayerFacing()
 
             -- rotate the arrow model to point at corpse
-            local cell = modulo(floor(angle / (2 * math.pi) * 108 + .5), 108)
-            local col = modulo(cell, 9)
+            local cell = floor(angle / (2 * math.pi) * 108 + .5) % 108
+            local col = cell % 9
             local row = floor(cell / 9)
             this.model:SetTexCoord(
                 (col * 56) / 512, ((col + 1) * 56) / 512,
