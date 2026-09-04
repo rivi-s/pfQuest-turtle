@@ -318,6 +318,7 @@ pfDB["zones"]["esES-turtle"] = {
   [604] = "Aldea Magram",
   [606] = "Aldea Gelkis",
   [609] = "Aldea Kolkar",
+  [618] = "Winterspring",
   [636] = "Río Lobo Negro",
   [637] = "Roca Kodo",
   [638] = "Camino Oculto",

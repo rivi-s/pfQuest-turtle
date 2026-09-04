@@ -84,6 +84,19 @@ local zoneToUiMapID = {
     [493] = 1450,
 }
 
+-- Custom zones are not represented by Blizzard's WorldMapArea data. Their
+-- normalized bounds are measured from the client continent map; add future
+-- custom-zone calibrations here without altering the projection code.
+local customContinentTransforms = {
+    -- Alah'Thalas: Eastern Kingdoms. Fitted from Warden Sira Moonwarden
+    -- (26.7 / 25.9 -> 50.9 / 13.0) and Marrondra
+    -- (35.7 / 32.5 -> 51.3 / 13.3).
+    [2040] = { continent = 2, left = 0.49713, top = 0.11823, width = 0.04444, height = 0.04545 },
+    -- Moonwhisper Coast: north-east of Kalimdor, visible on the client map.
+    -- Calibrated against Gordnak (51.89 / 36.61) at Kalimdor 61.1 / 18.9.
+    [5642] = { continent = 1, left = 0.445, top = -0.016, width = 0.32, height = 0.56 },
+}
+
 local function GetZoneData(zoneID)
     return pfDB and pfDB["zones"] and pfDB["zones"]["data"] and pfDB["zones"]["data"][zoneID]
 end
@@ -100,6 +113,11 @@ local zoneContinent = {
 }
 
 local function GetZoneContinent(zoneID)
+    local custom = customContinentTransforms[zoneID]
+    if custom then
+        return custom.continent
+    end
+
     if zoneContinent[zoneID] then
         return zoneContinent[zoneID]
     end
@@ -149,6 +167,22 @@ local function WorldToContinent(worldX, worldY, continent)
     local y = (contData[4] - worldY) / contData[2]
 
     return x, y
+end
+
+local function ZoneToContinent(x, y, zoneID, continent)
+    local custom = customContinentTransforms[zoneID]
+    if custom then
+        if custom.continent ~= continent then
+            return nil, nil
+        end
+        return custom.left + custom.width * (x / 100), custom.top + custom.height * (y / 100)
+    end
+
+    local worldX, worldY = ZoneToWorld(x, y, zoneID)
+    if not worldX or not worldY then
+        return nil, nil
+    end
+    return WorldToContinent(worldX, worldY, continent)
 end
 
 local function NodeAnimate(self, max)
@@ -373,7 +407,7 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
             if zoneCont == continent then
                 stats.zonesMatched = stats.zonesMatched + 1
                 local uiMapID = zoneToUiMapID[zID]
-                if uiMapID and mapData[uiMapID] then
+                if customContinentTransforms[zID] or (uiMapID and mapData[uiMapID]) then
                     stats.zonesWithUiMapID = stats.zonesWithUiMapID + 1
                     for coords, node in pairs(zoneNodes) do
                         local skipNode = false
@@ -476,9 +510,8 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                             local zoneY = tonumber(stry)
 
                             if zoneX and zoneY then
-                                local worldX, worldY = ZoneToWorld(zoneX, zoneY, zID)
-                                if worldX and worldY then
-                                    local contX, contY = WorldToContinent(worldX, worldY, continent)
+                                local contX, contY = ZoneToContinent(zoneX, zoneY, zID, continent)
+                                if contX and contY then
                                     stats.nodesConverted = stats.nodesConverted + 1
                                     if contX and contY and contX >= 0 and contX <= 1 and contY >= 0 and contY <= 1 then
                                         pinCount = pinCount + 1
@@ -514,7 +547,7 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                                         end
                                     elseif not stats.sampledOutOfBounds then
                                         stats.sampledOutOfBounds = true
-                                        DebugPrint("sample out-of-bounds: continent=" .. continent .. " zID=" .. tostring(zID) .. " zoneXY=" .. tostring(zoneX) .. "," .. tostring(zoneY) .. " worldXY=" .. tostring(worldX) .. "," .. tostring(worldY) .. " contXY=" .. tostring(contX) .. "," .. tostring(contY))
+                                        DebugPrint("sample out-of-bounds: continent=" .. continent .. " zID=" .. tostring(zID) .. " zoneXY=" .. tostring(zoneX) .. "," .. tostring(zoneY) .. " contXY=" .. tostring(contX) .. "," .. tostring(contY))
                                     end
                                 end
                             end

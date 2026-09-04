@@ -1,5 +1,6 @@
 local ENTRY_HEIGHT = 22
-local NUM_COLUMNS = 3
+-- Four columns keep the larger, readable config scale within a normal screen height.
+local NUM_COLUMNS = 4
 local HEADER_INDENT = 10
 local ITEM_INDENT = 20
 

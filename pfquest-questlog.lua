@@ -66,9 +66,53 @@ questLogFrame:RegisterEvent('QUEST_COMPLETE')
 questLogFrame:RegisterEvent('QUEST_GREETING')
 questLogFrame:RegisterEvent('QUEST_PROGRESS')
 
+-- Selecting a quest changes the dialog asynchronously. Repeated right-clicks
+-- can emit another greeting/gossip event before that transition completes.
+-- Use a short debounce instead of persistent state: some Turtle dialogs do not
+-- emit a follow-up event, which must never leave automation locked forever.
+local interactionLockedUntil = 0
+
+local function BeginInteraction(kind)
+    local now = GetTime()
+    if now < interactionLockedUntil then
+        return false
+    end
+    interactionLockedUntil = now + 0.25
+    return true
+end
+
+local function EndInteraction()
+    interactionLockedUntil = 0
+end
+
+-- Rewarding a quest can reindex the whole quest log a frame later. Re-scan
+-- once it settles so another quest from the same NPC is redrawn from its own
+-- current completion state instead of the just-removed quest's old slot.
+local postRewardRefresh = CreateFrame("Frame")
+postRewardRefresh:Hide()
+postRewardRefresh.elapsed = 0
+postRewardRefresh:SetScript("OnUpdate", function()
+    this.elapsed = this.elapsed + arg1
+    if this.elapsed < 0.35 then
+        return
+    end
+
+    this:Hide()
+    if pfQuest and pfQuest.UpdateQuestlog then
+        pfQuest:UpdateQuestlog()
+        pfQuest.updateQuestLog = true
+        pfQuest.updateQuestGivers = true
+    end
+    if pfMap then
+        pfMap.queue_update = GetTime()
+    end
+end)
+
 local function CompleteQuestWithRewards()
     if GetNumQuestChoices() == 0 then
         GetQuestReward()
+        postRewardRefresh.elapsed = 0
+        postRewardRefresh:Show()
     end
 end
 
@@ -76,10 +120,66 @@ local function SkipLowLevelQuest(isLowLevel)
     return pfQuest_config["autoQuestsSkipLowLevel"] == "1" and isLowLevel
 end
 
+local function IsAvailableQuestLowLevel(index)
+    -- GetAvailableQuestInfo is not exposed by every Turtle client build.
+    if GetAvailableQuestInfo then
+        return GetAvailableQuestInfo(index)
+    end
+
+    -- The classic API returns title, level, then its low-level/trivial flag.
+    if GetAvailableTitle then
+        local _, _, isLowLevel = GetAvailableTitle(index)
+        return isLowLevel
+    end
+
+    return false
+end
+
 local function IsTrivialQuest()
     local title = GetTitleText()
     return string.find(string.lower(title), "low level") ~= nil
 end
+
+-- Turtle's GetActiveTitle only returns a title. The matching quest-log row
+-- does expose completion state, so use it to identify turn-ins at greetings.
+local function IsGreetingQuestComplete(title)
+    for qlogid = 1, 40 do
+        local qtitle, _, _, header, _, complete = pfQuestCompat.GetQuestLogTitle(qlogid)
+        if qtitle and not header and qtitle == title then
+            return complete and true or false
+        end
+    end
+    return false
+end
+
+local function SelectFirstAvailableQuest()
+    if not GetNumAvailableQuests or GetNumAvailableQuests() < 1 then
+        return false
+    end
+
+    if SkipLowLevelQuest(IsAvailableQuestLowLevel(1)) then
+        return false
+    end
+
+    SelectAvailableQuest(1)
+    return true
+end
+
+-- Turtle populates the greeting quest list shortly after QUEST_GREETING.
+-- Retry briefly so automation does not inspect the list before it exists.
+local questGreetingRetry = CreateFrame("Frame")
+questGreetingRetry:Hide()
+questGreetingRetry.elapsed = 0
+questGreetingRetry:SetScript("OnUpdate", function()
+    this.elapsed = this.elapsed + arg1
+    if this.elapsed < 0.1 then
+        return
+    end
+
+    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectFirstAvailableQuest()) or this.elapsed >= 1 then
+        this:Hide()
+    end
+end)
 
 questLogFrame:SetScript("OnEvent", function()
     if pfQuest_config["autoQuests"] == "0" or IsShiftKeyDown() then
@@ -87,40 +187,60 @@ questLogFrame:SetScript("OnEvent", function()
     end
 
     if event == "QUEST_PROGRESS" then
+        EndInteraction()
         if IsQuestCompletable() then
             CompleteQuest()
         end
     end
 
     if event == "QUEST_COMPLETE" then
+        EndInteraction()
         if GetNumQuestChoices() == 0 then
             GetQuestReward()
+            postRewardRefresh.elapsed = 0
+            postRewardRefresh:Show()
         elseif QuestFrameRewardPanel.itemChoice and QuestFrameRewardPanel.itemChoice > 0 then
             GetQuestReward(QuestFrameRewardPanel.itemChoice)
         end
     end
 
     if event == "QUEST_GREETING" then
+        if not BeginInteraction("greeting") then
+            return
+        end
+
         local numActiveQuests = GetNumActiveQuests()
         for i=1, numActiveQuests do
-            local title, completed = GetActiveTitle(i)
-            if completed then
+            local title = GetActiveTitle(i)
+            if IsGreetingQuestComplete(title) then
                 SelectActiveQuest(i)
-                CompleteQuestWithRewards()
+                -- Selecting an entry opens the completion dialog on the next
+                -- client update. QUEST_COMPLETE below then safely claims a
+                -- no-choice reward; doing it here was one event too early.
+                return
             end
         end
 
-        -- The quest dialog closes when the quest gets accepted so no need to do this in a loop
-        if GetNumAvailableQuests() >= 1 and not GetAvailableQuestInfo(1) then
-            SelectAvailableQuest(1)
+        -- The quest dialog closes when the quest gets accepted so no loop is needed.
+        if not SelectFirstAvailableQuest() then
+            EndInteraction()
+            questGreetingRetry.elapsed = 0
+            questGreetingRetry:Show()
         end
     end
 
-    if event == "QUEST_DETAIL" and not IsTrivialQuest() then
-        AcceptQuest()
+    if event == "QUEST_DETAIL" then
+        EndInteraction()
+        if not IsTrivialQuest() then
+            AcceptQuest()
+        end
     end
 
     if event == "GOSSIP_SHOW" and GetGossipAvailableQuests then
+        if not BeginInteraction("gossip") then
+            return
+        end
+
         local available = { GetGossipAvailableQuests() }
         local questIndex = 0
         local i = 1
@@ -156,5 +276,8 @@ questLogFrame:SetScript("OnEvent", function()
             end
             i = i + 1
         end
+
+        -- No gossip row was selected, so a new interaction should be allowed.
+        EndInteraction()
     end
 end)

@@ -28,3 +28,4 @@ pfQuest-updater.lua
 pfQuest-nameplates.lua
 pfQuest-announce.lua
 pfQuest-partyprogress.lua
+pfQuest-config-resize.lua
