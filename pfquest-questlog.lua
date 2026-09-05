@@ -97,7 +97,6 @@ postRewardRefresh:SetScript("OnUpdate", function()
         return
     end
 
-    this:Hide()
     if pfQuest and pfQuest.UpdateQuestlog then
         pfQuest:UpdateQuestlog()
         pfQuest.updateQuestLog = true
@@ -106,12 +105,24 @@ postRewardRefresh:SetScript("OnUpdate", function()
     if pfMap then
         pfMap.queue_update = GetTime()
     end
+
+    -- Scripted dialogue chains can advance their next quest state after the
+    -- first reward refresh. Run a second short pass before stopping so an old
+    -- yellow turn-in pin cannot remain on the next unfinished quest.
+    if this.passes == 0 then
+        this.passes = 1
+        this.elapsed = 0
+        return
+    end
+
+    this:Hide()
 end)
 
 local function CompleteQuestWithRewards()
     if GetNumQuestChoices() == 0 then
         GetQuestReward()
         postRewardRefresh.elapsed = 0
+        postRewardRefresh.passes = 0
         postRewardRefresh:Show()
     end
 end
@@ -152,6 +163,54 @@ local function IsGreetingQuestComplete(title)
     return false
 end
 
+-- Report/talk quests can be listed as active at their destination before
+-- Turtle marks them complete. They have no objective rows, unlike incomplete
+-- kill or collection quests, so they are safe to select at a quest greeting.
+local function IsGreetingQuestReady(title)
+    for qlogid = 1, 40 do
+        local qtitle, _, _, header, _, complete = pfQuestCompat.GetQuestLogTitle(qlogid)
+        if qtitle and not header and qtitle == title then
+            return complete or (GetNumQuestLeaderBoards(qlogid) or 0) == 0
+        end
+    end
+    return false
+end
+
+-- Turtle can report false from IsQuestCompletable() for simple talk/report
+-- quests, even when their quest-log row is already complete. QUEST_PROGRESS
+-- is only allowed to advance when either API confirms completion or the
+-- selected/current quest is marked complete in the log.
+local function IsQuestReadyToComplete()
+    if IsQuestCompletable and IsQuestCompletable() then
+        return true
+    end
+
+    if GetQuestLogSelection then
+        local selection = GetQuestLogSelection()
+        if selection then
+            local _, _, _, header, _, complete = pfQuestCompat.GetQuestLogTitle(selection)
+            if not header and complete then
+                return true
+            end
+        end
+    end
+
+    local title = GetTitleText and GetTitleText()
+    return title and IsGreetingQuestComplete(title) or false
+end
+
+-- Some Turtle chains use QUEST_PROGRESS for a scripted dialogue step. Advance
+-- only an enabled Continue button; do not force ordinary incomplete quests.
+local function IsQuestDialogueContinue()
+    local button = QuestFrameCompleteButton
+    if not button or not button:IsShown() or not button:IsEnabled() then
+        return false
+    end
+
+    local text = button:GetText()
+    return text == "Continue" or (CONTINUE and text == CONTINUE)
+end
+
 local function SelectFirstAvailableQuest()
     if not GetNumAvailableQuests or GetNumAvailableQuests() < 1 then
         return false
@@ -165,8 +224,30 @@ local function SelectFirstAvailableQuest()
     return true
 end
 
+local function SelectFirstCompletedActiveQuest()
+    if not GetNumActiveQuests then
+        return false
+    end
+
+    local numActiveQuests = GetNumActiveQuests()
+    for i = 1, numActiveQuests do
+        local title = GetActiveTitle(i)
+        if title and IsGreetingQuestReady(title) then
+            SelectActiveQuest(i)
+            return true
+        end
+    end
+
+    return false
+end
+
+local function SelectAutoQuestGreeting()
+    -- Always prefer a completed turn-in over an available quest at the same NPC.
+    return SelectFirstCompletedActiveQuest() or SelectFirstAvailableQuest()
+end
+
 -- Turtle populates the greeting quest list shortly after QUEST_GREETING.
--- Retry briefly so automation does not inspect the list before it exists.
+-- Retry briefly so automation does not inspect either list before it exists.
 local questGreetingRetry = CreateFrame("Frame")
 questGreetingRetry:Hide()
 questGreetingRetry.elapsed = 0
@@ -176,7 +257,7 @@ questGreetingRetry:SetScript("OnUpdate", function()
         return
     end
 
-    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectFirstAvailableQuest()) or this.elapsed >= 1 then
+    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectAutoQuestGreeting()) or this.elapsed >= 1 then
         this:Hide()
     end
 end)
@@ -188,7 +269,7 @@ questLogFrame:SetScript("OnEvent", function()
 
     if event == "QUEST_PROGRESS" then
         EndInteraction()
-        if IsQuestCompletable() then
+        if IsQuestReadyToComplete() or IsQuestDialogueContinue() then
             CompleteQuest()
         end
     end
@@ -198,6 +279,7 @@ questLogFrame:SetScript("OnEvent", function()
         if GetNumQuestChoices() == 0 then
             GetQuestReward()
             postRewardRefresh.elapsed = 0
+            postRewardRefresh.passes = 0
             postRewardRefresh:Show()
         elseif QuestFrameRewardPanel.itemChoice and QuestFrameRewardPanel.itemChoice > 0 then
             GetQuestReward(QuestFrameRewardPanel.itemChoice)
@@ -209,20 +291,9 @@ questLogFrame:SetScript("OnEvent", function()
             return
         end
 
-        local numActiveQuests = GetNumActiveQuests()
-        for i=1, numActiveQuests do
-            local title = GetActiveTitle(i)
-            if IsGreetingQuestComplete(title) then
-                SelectActiveQuest(i)
-                -- Selecting an entry opens the completion dialog on the next
-                -- client update. QUEST_COMPLETE below then safely claims a
-                -- no-choice reward; doing it here was one event too early.
-                return
-            end
-        end
-
-        -- The quest dialog closes when the quest gets accepted so no loop is needed.
-        if not SelectFirstAvailableQuest() then
+        -- Selecting a turn-in opens the completion dialog on the next client
+        -- update. QUEST_COMPLETE below then safely claims a no-choice reward.
+        if not SelectAutoQuestGreeting() then
             EndInteraction()
             questGreetingRetry.elapsed = 0
             questGreetingRetry:Show()

@@ -422,6 +422,13 @@ local function ShareQuestData(forceFullSync)
 end
 
 local function ProcessQuestData(sender, message)
+    -- Some Turtle clients also fire CHAT_MSG_ADDON for messages we send to the
+    -- party. Local progress is already rendered by the normal quest tooltip;
+    -- retaining it here produces a duplicate line labelled with our own name.
+    if sender == UnitName("player") then
+        return
+    end
+
     local removeQuestId, removeQuestTitle = string.match(message, "^REMOVEQ:(%d+):(.+)$")
     if removeQuestId and removeQuestTitle then
         if partyQuestData[sender] then
@@ -602,8 +609,9 @@ end
 local function BuildQuestGroups(matchedKey)
     local questGroups = {}
 
+    local localPlayerName = UnitName("player")
     for playerName, targets in pairs(partyQuestData) do
-        if targets[matchedKey] then
+        if playerName ~= localPlayerName and targets[matchedKey] then
             for _, data in ipairs(targets[matchedKey]) do
                 questGroups[data.quest] = questGroups[data.quest] or {}
 
