@@ -12,6 +12,7 @@ local turtleQuestObjectives = {
   -- Redridge item-objectives: also list the source object directly.  The base
   -- item links alone are not consistently added to the active quest overlay.
   [125]   = { ["I"] = { 1309 }, ["O"] = { 32 } }, -- The Lost Tools: Sunken Chest in Lake Everstill
+  [142]   = { ["I"] = { 1381 }, ["U"] = { 550 } }, -- The Defias Brotherhood: Defias Messenger
   [2282]  = { ["I"] = { 7871 }, ["O"] = { 121264 } }, -- Alther's Mill: Lucius's Lockbox
   [3741]  = { ["I"] = { 10958 }, ["O"] = { 154357 } }, -- Hilary's Necklace: Glinting Mud
   [465]   = { ["O"] = { 1000098 } }, -- Nek'rosh's Gambit: Dragonmaw Catapults

@@ -50,7 +50,7 @@ local function CreateEntryFrame(data)
         frame.input:SetTextColor(.2, 1, .8, 1)
         frame.input:SetJustifyH("RIGHT")
         frame.input:SetTextInsets(5, 5, 5, 5)
-        frame.input:SetWidth(32)
+        frame.input:SetWidth(data.inputwidth or 32)
         frame.input:SetHeight(16)
         frame.input:SetPoint("RIGHT", -ITEM_INDENT, 0)
         frame.input:SetFontObject(GameFontNormal)
@@ -60,10 +60,16 @@ local function CreateEntryFrame(data)
         end)
 
         frame.input.config = data.config
-        frame.input:SetText(pfQuest_config[data.config])
+        frame.input.globalconfig = data.globalconfig
+        local saved = data.globalconfig and pfQuest_global or pfQuest_config
+        frame.input:SetText(saved[data.globalconfig or data.config] or data.default)
 
         frame.input:SetScript("OnTextChanged", function(self)
-            pfQuest_config[this.config] = this:GetText()
+            if this.globalconfig then
+                pfQuest_global[this.globalconfig] = this:GetText()
+            else
+                pfQuest_config[this.config] = this:GetText()
+            end
         end)
 
         pfUI.api.CreateBackdrop(frame.input, nil, true)
@@ -102,7 +108,7 @@ local function CreateConfigEntries(self, config)
         if data.type then
             local frame = CreateEntryFrame(data)
             configframes[data.text] = frame
-            maxtext = math.max(maxtext, frame.caption:GetStringWidth())
+            maxtext = math.max(maxtext, frame.caption:GetStringWidth() + (data.inputwidth or 32) - 32)
             table.insert(ordered, { frame = frame, data = data })
         end
     end
@@ -184,7 +190,8 @@ local function UpdateConfigEntries(self)
             if data.type == "checkbox" then
                 configframes[data.text].input:SetChecked((pfQuest_config[data.config] == "1" and true or nil))
             elseif data.type == "text" then
-                configframes[data.text].input:SetText(pfQuest_config[data.config])
+                local saved = data.globalconfig and pfQuest_global or pfQuest_config
+                configframes[data.text].input:SetText(saved[data.globalconfig or data.config] or data.default)
             end
         end
     end
