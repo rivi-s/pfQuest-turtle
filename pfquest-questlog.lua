@@ -224,6 +224,23 @@ local function SelectFirstAvailableQuest()
     return true
 end
 
+-- Some Turtle NPCs open a normal quest greeting but expose their available
+-- quests only through the gossip API (not GetNumAvailableQuests). This is
+-- notably used by cross-faction/server-custom quest offerings.
+local function SelectFirstGossipAvailableQuest()
+    if not GetGossipAvailableQuests or not SelectGossipAvailableQuest then
+        return false
+    end
+
+    local available = { GetGossipAvailableQuests() }
+    if type(available[1]) ~= "string" then
+        return false
+    end
+
+    SelectGossipAvailableQuest(1)
+    return true
+end
+
 local function SelectFirstCompletedActiveQuest()
     if not GetNumActiveQuests then
         return false
@@ -318,12 +335,15 @@ questLogFrame:SetScript("OnEvent", function()
         while i <= table.getn(available) do
             if type(available[i]) == "string" then
                 questIndex = questIndex + 1
-                local isLowLevel = available[i + 2]
+                -- Turtle's custom gossip list can omit the usual boolean
+                -- low-level flag, yielding title, level, title, level. Only
+                -- a real boolean may be used to skip a low-level quest.
+                local isLowLevel = type(available[i + 2]) == "boolean" and available[i + 2] or false
                 if not SkipLowLevelQuest(isLowLevel) then
                     SelectGossipAvailableQuest(questIndex)
                     return
                 end
-                i = i + 3
+                i = i + (type(available[i + 2]) == "boolean" and 3 or 2)
             else
                 i = i + 1
             end
