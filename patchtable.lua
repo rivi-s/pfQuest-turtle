@@ -43,6 +43,48 @@ if loc_update then patchtable(loc_core, loc_update) end
 if pfDB["minimap-turtle"] then patchtable(pfDB["minimap"], pfDB["minimap-turtle"]) end
 if pfDB["meta-turtle"] then patchtable(pfDB["meta"], pfDB["meta-turtle"]) end
 
+-- The legacy SQL importer represented some reference-loot pointers as though
+-- the reference ID itself were an item drop.  Reference IDs often overlap a
+-- real item ID, so this produces impossible drops in the loot panel (for
+-- example, Lost Soul -> Onyxian Drake).  A leaked pointer has an exact copy of
+-- its reference pool's source list; mark only those exact copies for filtering.
+local function SameSourceSet(first, second)
+  if not first or not second then return false end
+
+  local count = 0
+  for id in pairs(first) do
+    count = count + 1
+    if not second[id] then return false end
+  end
+  if count == 0 then return false end
+
+  for id in pairs(second) do
+    if not first[id] then return false end
+  end
+
+  return true
+end
+
+local function IsReferenceToken(item, reference)
+  local hasSources = false
+  for _, sourceType in pairs({ "U", "O" }) do
+    if item[sourceType] or reference[sourceType] then
+      if not SameSourceSet(item[sourceType], reference[sourceType]) then
+        return false
+      end
+      hasSources = true
+    end
+  end
+  return hasSources
+end
+
+for id, reference in pairs(pfDB["refloot"]["data"]) do
+  local item = pfDB["items"]["data"][id]
+  if item and IsReferenceToken(item, reference) then
+    item["reference-token"] = true
+  end
+end
+
 -- Detect german client patch and switch some databases
 if TURTLE_DE_PATCH then
   pfDB["zones"]["loc"] = pfDB["zones"]["deDE"] or pfDB["zones"]["enUS"]
@@ -688,8 +730,7 @@ pfMap.NodeEnter = function()
 
       tooltip:AddLine(text, .6, .6, .6)
 
-      local unitData = pfDB["units"]["data"][this.spawnid]
-      if unitData and unitData["rnk"] and pfQuestLoot.HasDrops(this.spawnid) then
+      if this.spawnid and pfQuestLoot.HasDrops(this.spawnid) then
         tooltip:AddLine(pfQuest_Loc["Alt-Click To Show Item Drops"] or "Alt-Click To Show Item Drops", .6, .6, .6)
       end
 
@@ -703,8 +744,7 @@ end
 local originalNodeClick = pfMap.NodeClick
 pfMap.NodeClick = function()
   if IsAltKeyDown() and this.spawnid then
-    local unitData = pfDB["units"]["data"][this.spawnid]
-    if unitData and unitData["rnk"] then
+    if pfQuestLoot.HasDrops(this.spawnid) then
       local ok, err = pcall(pfQuestLoot.ShowPinned, this)
       if not ok then
         DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[pfQuest-turtle]|r ShowPinned error: " .. tostring(err))
@@ -714,6 +754,41 @@ pfMap.NodeClick = function()
   end
 
   if originalNodeClick then originalNodeClick() end
+end
+
+-- Minimap pins are recycled.  A recycled pin can keep the core click handler
+-- that was installed before the Turtle wrapper, which makes Alt-click work on
+-- the world map but not on that minimap pin.  Wrap the pin's current handler
+-- after every minimap update and retain it for ordinary clicks.
+local function MinimapLootNodeClick()
+  local altClick = IsAltKeyDown() or this.lootPanelAltMouseDown
+  this.lootPanelAltMouseDown = nil
+  if altClick and this.spawnid then
+    if pfQuestLoot.HasDrops(this.spawnid) then
+      local ok, err = pcall(pfQuestLoot.ShowPinned, this)
+      if not ok then
+        DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[pfQuest-turtle]|r ShowPinned error: " .. tostring(err))
+      end
+      return
+    end
+  end
+
+  if this.lootPanelOriginalClick then
+    this.lootPanelOriginalClick()
+  end
+end
+
+local originalUpdateNode = pfMap.UpdateNode
+pfMap.UpdateNode = function(self, frame, node, color, obj, distance)
+  originalUpdateNode(self, frame, node, color, obj, distance)
+
+  if obj == "minimap" and frame.spawnid and frame:GetScript("OnClick") ~= MinimapLootNodeClick then
+    frame.lootPanelOriginalClick = frame:GetScript("OnClick")
+    frame:SetScript("OnClick", MinimapLootNodeClick)
+    frame:SetScript("OnMouseDown", function()
+      this.lootPanelAltMouseDown = IsAltKeyDown() and true or nil
+    end)
+  end
 end
 
 local function RebindUnitResultTooltips()

@@ -630,6 +630,7 @@ end
 local continentPollFrame = CreateFrame("Frame")
 local continentPollElapsed = 0
 local lastPolledContinent, lastPolledZone
+local continentRefreshPending = false
 continentPollFrame:SetScript("OnUpdate", function()
     if not WorldMapFrame:IsShown() then
         return
@@ -642,11 +643,18 @@ continentPollFrame:SetScript("OnUpdate", function()
         DebugPrint("poll transition: continent " .. tostring(lastPolledContinent) .. "->" .. tostring(currentContinent) .. " zone " .. tostring(lastPolledZone) .. "->" .. tostring(currentZone) .. " mapName=" .. tostring(GetMapInfo and GetMapInfo()) .. " buttonShown=" .. tostring(WorldMapButton:IsShown()))
         lastPolledContinent = currentContinent
         lastPolledZone = currentZone
+        continentRefreshPending = true
     end
 
-    continentPollElapsed = continentPollElapsed + (arg1 or 0)
-    if continentPollElapsed >= 0.15 then
+    -- The world map remains open while the player moves. Rebuilding every
+    -- pin on a timer here caused large maps to redraw several times a second.
+    -- A redraw is only needed after the viewed continent/zone changes.
+    if continentRefreshPending then
+      continentPollElapsed = continentPollElapsed + (arg1 or 0)
+    end
+    if continentRefreshPending and continentPollElapsed >= 0.15 then
         continentPollElapsed = 0
+        continentRefreshPending = false
         pfMap:UpdateNodes()
     end
 end)

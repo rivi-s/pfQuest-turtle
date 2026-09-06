@@ -35,11 +35,11 @@ local function BuildDropsForUnit(unitid)
   local seen = {}
 
   for itemid, item in pairs(items) do
-    if item["U"] and item["U"][unitid] and not seen[itemid] then
+    if not item["reference-token"] and item["U"] and item["U"][unitid] and not seen[itemid] then
       seen[itemid] = true
       local sourceCount = CountEntries(item["U"])
       table.insert(list, { item = itemid, chance = item["U"][unitid] or 0, isRef = false, sourceCount = sourceCount })
-    elseif item["R"] and not seen[itemid] then
+    elseif not item["reference-token"] and item["R"] and not seen[itemid] then
       for ref, chance in pairs(item["R"]) do
         local refdata = refloot[ref]
         if refdata and refdata["U"] and refdata["U"][unitid] then
@@ -119,7 +119,9 @@ local function GetVisibleDrops(unitid)
   return visible
 end
 
-local panel = CreateFrame("Frame", "pfQuestLootPanel", WorldMapFrame)
+-- This panel is also opened from minimap pins, so it cannot be a child of
+-- WorldMapFrame: that frame is hidden whenever the regular map is closed.
+local panel = CreateFrame("Frame", "pfQuestLootPanel", UIParent)
 -- one strata below TOOLTIP (but above DIALOG, which pfUI's map skin uses
 -- heavily) so GameTooltip reliably renders above this panel
 panel:SetFrameStrata("FULLSCREEN_DIALOG")
@@ -259,6 +261,7 @@ local pinnedUnitId = nil
 function pfQuestLoot.Hide()
   pinned = false
   pinnedUnitId = nil
+  panel.openedFromWorldMap = nil
   panel:Hide()
 end
 
@@ -336,7 +339,7 @@ function pfQuestLoot.ShowPinned(nodeFrame)
   end
 
   local unitData = pfDB["units"]["data"][unitid]
-  if not unitData or not unitData["rnk"] then return end
+  if not unitData then return end
 
   local headerLines = {
     "|cff4dffcc" .. (nodeFrame.spawn or UNKNOWN) .. "|r",
@@ -375,12 +378,19 @@ function pfQuestLoot.ShowPinned(nodeFrame)
 
   pinned = true
   pinnedUnitId = unitid
+  panel.openedFromWorldMap = nodeFrame:GetParent() == WorldMapButton
 
   panel:SetWidth(contentWidth + PANEL_MARGIN * 2)
   panel:SetHeight(headerHeight + PANEL_MARGIN + (ok and gridHeight or noItemsHeight))
 
   panel:ClearAllPoints()
-  panel:SetPoint("TOPLEFT", nodeFrame, "BOTTOMLEFT", 0, -6)
+  if panel.openedFromWorldMap then
+    panel:SetPoint("TOPLEFT", nodeFrame, "BOTTOMLEFT", 0, -6)
+  else
+    -- A minimap pin is repositioned as the player moves. Capture its screen
+    -- position once so the loot panel does not visibly chase it around.
+    panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", nodeFrame:GetLeft(), nodeFrame:GetBottom() - 6)
+  end
 
   panel:Show()
 end
@@ -403,10 +413,14 @@ end)
 
 local mapWatcher = CreateFrame("Frame")
 mapWatcher:RegisterEvent("WORLD_MAP_UPDATE")
-mapWatcher:SetScript("OnEvent", pfQuestLoot.Hide)
+mapWatcher:SetScript("OnEvent", function()
+  if panel.openedFromWorldMap then pfQuestLoot.Hide() end
+end)
 
 if WorldMapFrame then
-  WorldMapFrame:HookScript("OnHide", pfQuestLoot.Hide)
+  WorldMapFrame:HookScript("OnHide", function()
+    if panel.openedFromWorldMap then pfQuestLoot.Hide() end
+  end)
   WorldMapFrame:HookScript("OnHide", function() unitDropsCache = {} end)
 end
 
