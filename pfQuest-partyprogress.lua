@@ -799,6 +799,30 @@ local function HookPfQuestTooltip()
     return true
 end
 
+-- QUEST_LOG_UPDATE arrives in bursts during login. Rebuilding mappings walks
+-- the active log and database relations, so coalesce those bursts into one
+-- pass after the client has settled.
+local mappingRefresh = CreateFrame("Frame")
+local function QueueMappingRefresh(forceFullSync)
+    mappingRefresh.forceFullSync = mappingRefresh.forceFullSync or forceFullSync
+    mappingRefresh.elapsed = 0
+    mappingRefresh:SetScript("OnUpdate", function()
+        this.elapsed = this.elapsed + arg1
+        if this.elapsed >= 0.5 then
+            local force = this.forceFullSync
+            this.forceFullSync = nil
+            this:SetScript("OnUpdate", nil)
+            if GetNumPartyMembers() > 0 then
+                RebuildQuestMappings()
+                if force then
+                    SendAddonMessage("PFQT_SYNC", "1", "PARTY")
+                end
+                ShareQuestData(force)
+            end
+        end
+    end)
+end
+
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("CHAT_MSG_ADDON")
 eventFrame:RegisterEvent("PARTY_MEMBERS_CHANGED")
@@ -810,21 +834,17 @@ eventFrame:SetScript("OnEvent", function()
             ProcessQuestData(sender, message)
         elseif prefix == "PFQT_SYNC" then
             if GetNumPartyMembers() > 0 and sender ~= UnitName("player") then
-                RebuildQuestMappings()
-                ShareQuestData(true)
+                QueueMappingRefresh(true)
             end
         end
     elseif event == "PARTY_MEMBERS_CHANGED" then
         CleanupPartyData()
         if GetNumPartyMembers() > 0 then
-            RebuildQuestMappings()
-            SendAddonMessage("PFQT_SYNC", "1", "PARTY")
-            ShareQuestData(true)
+            QueueMappingRefresh(true)
         end
     elseif event == "QUEST_LOG_UPDATE" then
         if GetNumPartyMembers() > 0 then
-            RebuildQuestMappings()
-            ShareQuestData()
+            QueueMappingRefresh()
         end
     end
 end)
@@ -853,9 +873,7 @@ configExtenderFrame:SetScript("OnEvent", function()
     HookGameTooltip()
 
     if GetNumPartyMembers() > 0 then
-        RebuildQuestMappings()
-        SendAddonMessage("PFQT_SYNC", "1", "PARTY")
-        ShareQuestData(true)
+        QueueMappingRefresh(true)
     end
 
     local timer = 0

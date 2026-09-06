@@ -17,7 +17,7 @@ local function ScanQuestObjectives()
         return
     end
 
-    if not pfDB["quests"]["enUS"] then
+    if not pfDB["quests"]["enUS"] or not pfDatabase then
         return
     end
 
@@ -25,16 +25,20 @@ local function ScanQuestObjectives()
     for qid = 1, GetNumQuestLogEntries() do
         local questTitle, _, _, _, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
         if questTitle and complete ~= 1 then
-            activeQuests[questTitle] = {}
+            local questIds = pfDatabase:GetQuestIDs(qid)
+            local questId = questIds and tonumber(questIds[1])
+            if questId then
+                activeQuests[questId] = {}
+            end
             local numObjectives = GetNumQuestLeaderBoards(qid)
 
             for i = 1, numObjectives do
                 local text, objType, finished = GetQuestLogLeaderBoard(i, qid)
                 if text and not finished then
                     local objName, current, total = string.match(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
-                    if objName then
+                    if objName and questId then
                         objName = string.gsub(objName, "^%s*(.-)%s*$", "%1")
-                        table.insert(activeQuests[questTitle], {
+                        table.insert(activeQuests[questId], {
                             objective = objName,
                             current = tonumber(current),
                             total = tonumber(total)
@@ -45,10 +49,10 @@ local function ScanQuestObjectives()
         end
     end
 
-    for questId, localizedData in pairs(pfDB["quests"]["enUS"]) do
-        local questTitle = localizedData["T"]
-
-        if questTitle and activeQuests[questTitle] then
+    -- Only inspect active quest IDs. The former title-based full database scan
+    -- ran thousands of records for every QUEST_LOG_UPDATE and also mixed up
+    -- unrelated stages that share a title.
+    for questId, activeObjectives in pairs(activeQuests) do
             local questData = pfDB["quests"]["data"][questId]
             if questData and questData["obj"] then
                 if questData["obj"]["U"] then
@@ -56,7 +60,7 @@ local function ScanQuestObjectives()
                         if pfDB["units"] and pfDB["units"]["enUS"] and pfDB["units"]["enUS"][unitId] then
                             local targetName = pfDB["units"]["enUS"][unitId]
 
-                            for _, activeObj in ipairs(activeQuests[questTitle]) do
+                            for _, activeObj in ipairs(activeObjectives) do
                                 local objNameBase = activeObj.objective:gsub(" slain$", ""):gsub(" killed$", "")
                                 if objNameBase == targetName or activeObj.objective:find(targetName, 1, true) then
                                     if activeObj.current < activeObj.total then
@@ -83,7 +87,7 @@ local function ScanQuestObjectives()
                                     if pfDB["units"] and pfDB["units"]["enUS"] and pfDB["units"]["enUS"][unitId] then
                                         local npcName = pfDB["units"]["enUS"][unitId]
 
-                                        for _, activeObj in ipairs(activeQuests[questTitle]) do
+                                        for _, activeObj in ipairs(activeObjectives) do
                                             if itemName and activeObj.objective:find(itemName, 1, true) then
                                                 if activeObj.current < activeObj.total then
                                                     questObjectives[npcName] = BAG_ICON
@@ -97,8 +101,7 @@ local function ScanQuestObjectives()
                     end
                 end
             end
-        end
-    end
+end
 end
 
 local function IsNameplate(frame)
@@ -332,10 +335,20 @@ eventFrame:RegisterEvent("QUEST_LOG_UPDATE")
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("ZONE_CHANGED")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
-eventFrame:SetScript("OnEvent", function()
-    ScanQuestObjectives()
-    UpdateAllNameplates()
-end)
+local objectiveScan = CreateFrame("Frame")
+local function QueueObjectiveScan()
+    objectiveScan.elapsed = 0
+    objectiveScan:SetScript("OnUpdate", function()
+        this.elapsed = this.elapsed + arg1
+        if this.elapsed >= 0.5 then
+            this:SetScript("OnUpdate", nil)
+            ScanQuestObjectives()
+            UpdateAllNameplates()
+        end
+    end)
+end
+
+eventFrame:SetScript("OnEvent", QueueObjectiveScan)
 
 local initFrame = CreateFrame("Frame")
 initFrame:RegisterEvent("ADDON_LOADED")
@@ -350,7 +363,7 @@ initFrame:SetScript("OnEvent", function()
                 if timer % 5 == 0 then
                     rebuildRetries = rebuildRetries + 1
                     if pfDB and pfDB["quests"] and pfDB["quests"]["data"] then
-                        ScanQuestObjectives()
+                        QueueObjectiveScan()
                         if pfQuest_config and pfQuest_config["nameplatesEnabled"] == "1" then
                             StartNameplateWatcher()
                         end
@@ -359,7 +372,7 @@ initFrame:SetScript("OnEvent", function()
             end
 
             if timer > 30 then
-                ScanQuestObjectives()
+                QueueObjectiveScan()
                 if pfQuest_config and pfQuest_config["nameplatesEnabled"] == "1" then
                     StartNameplateWatcher()
                 end
