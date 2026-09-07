@@ -1,5 +1,10 @@
 # pfQuest Turtle patch notes
 
+## 2026-09-07
+
+- Added 1,329 missing Russian quest translations from the newer Turtle data while retaining the current Turtle database and feature set.
+- Tooltip support now identifies creatures sharing a merged quest-item spawn marker.
+
 ## 2026-09-04
 
 - Merged the newer Turtle database while retaining feature-branch quest compatibility records.

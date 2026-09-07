@@ -252,6 +252,24 @@ local function AddRankLine(tooltip, spawnid)
   tooltip:AddDoubleLine((pfQuest_Loc["Rank"] or "Rank") .. ":", info.text, .8, .8, .8, info.r, info.g, info.b)
 end
 
+-- A single map pin can represent several creatures at the same coordinate.
+-- Keep the pin compact, but make every represented creature visible in its
+-- tooltip so players know the location is shared rather than incomplete.
+local function AddSharedSpawnLine(tooltip, sharedspawns, primary)
+  if not sharedspawns then return end
+
+  local names = {}
+  for name in pairs(sharedspawns) do
+    if name and name ~= primary then
+      table.insert(names, name)
+    end
+  end
+  if table.getn(names) == 0 then return end
+
+  table.sort(names)
+  tooltip:AddLine("Shared with: " .. table.concat(names, ", "), .7, .7, .7, true)
+end
+
 -- Helper to gather item drop source info for a quest-starting item
 local function GetItemDropSources(item, items, units, objects, refloot)
   local drop_sources = {}
@@ -657,6 +675,7 @@ pfMap.NodeEnter = function()
     tooltip:SetText(this.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..this.spawnid..")|r" or ""), .3, 1, .8)
     tooltip:AddDoubleLine(pfQuest_Loc["Type"] .. ":", (this.spawntype or UNKNOWN), .8,.8,.8, 1,1,1)
     AddRankLine(tooltip, this.spawnid)
+    AddSharedSpawnLine(tooltip, this.sharedspawns, this.spawn)
 
     if itemStartMeta.dropsources_levels then
       tooltip:AddLine(" ")
@@ -709,6 +728,7 @@ pfMap.NodeEnter = function()
     tooltip:AddDoubleLine(pfQuest_Loc["Level"] .. ":", (this.level or UNKNOWN), .8,.8,.8, 1,1,1)
     tooltip:AddDoubleLine(pfQuest_Loc["Type"] .. ":", (this.spawntype or UNKNOWN), .8,.8,.8, 1,1,1)
     AddRankLine(tooltip, this.spawnid)
+    AddSharedSpawnLine(tooltip, this.sharedspawns, this.spawn)
     tooltip:AddDoubleLine(pfQuest_Loc["Respawn"] .. ":", (this.respawn or UNKNOWN), .8,.8,.8, 1,1,1)
 
     for title, meta in pairs(this.node) do
