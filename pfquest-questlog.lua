@@ -72,6 +72,22 @@ questLogFrame:RegisterEvent('QUEST_PROGRESS')
 -- Use a short debounce instead of persistent state: some Turtle dialogs do not
 -- emit a follow-up event, which must never leave automation locked forever.
 local interactionLockedUntil = 0
+local recentlyRewarded = {}
+local rewardLockedUntil = 0
+
+-- Turtle can keep a rewarded quest in the greeting/gossip list briefly after
+-- GetQuestReward(). Do not select that stale row again while the server and
+-- quest log catch up.
+local function WasRecentlyRewarded(title)
+    return title and recentlyRewarded[title] and recentlyRewarded[title] > GetTime()
+end
+
+local function RememberRewardedQuest()
+    local title = GetTitleText and GetTitleText()
+    if title and title ~= "" then
+        recentlyRewarded[title] = GetTime() + 2
+    end
+end
 
 local function BeginInteraction(kind)
     local now = GetTime()
@@ -116,15 +132,41 @@ postRewardRefresh:SetScript("OnUpdate", function()
         return
     end
 
+    -- Turtle can reindex the remaining quest rows after the reward has been
+    -- claimed. Redraw those active entries once, after that reindex, so a
+    -- leftover unfinished quest does not retain the rewarded quest's yellow
+    -- turn-in marker. This only runs following an automated reward.
+    -- Rebuilding every remaining quest is useful only when the World Map is
+    -- visible. Doing it immediately after a reward can hitch badly on newer
+    -- quests with many objective nodes, even though no map is on screen.
+    if WorldMapFrame and WorldMapFrame:IsShown() and pfQuest and pfQuest.questlog and pfDatabase and pfMap then
+        for questid, data in pairs(pfQuest.questlog) do
+            if type(questid) == "number" and data.qlogid and data.title then
+                pfMap:DeleteNode("PFQUEST", data.title)
+                pfDatabase:SearchQuestID(questid, { ["addon"] = "PFQUEST", ["qlogid"] = data.qlogid })
+            end
+        end
+        pfMap.queue_update = GetTime()
+    end
+
     this:Hide()
 end)
+
+local function SchedulePostRewardRefresh()
+    -- This cleanup exists only to redraw a visible World Map after an
+    -- automated reward. Let the normal quest-log scan handle gameplay with
+    -- the map closed, avoiding a pair of expensive immediate refreshes.
+    if WorldMapFrame and WorldMapFrame:IsShown() then
+        postRewardRefresh.elapsed = 0
+        postRewardRefresh.passes = 0
+        postRewardRefresh:Show()
+    end
+end
 
 local function CompleteQuestWithRewards()
     if GetNumQuestChoices() == 0 then
         GetQuestReward()
-        postRewardRefresh.elapsed = 0
-        postRewardRefresh.passes = 0
-        postRewardRefresh:Show()
+        SchedulePostRewardRefresh()
     end
 end
 
@@ -250,9 +292,31 @@ local function SelectFirstCompletedActiveQuest()
     local numActiveQuests = GetNumActiveQuests()
     for i = 1, numActiveQuests do
         local title = GetActiveTitle(i)
-        if title and IsGreetingQuestReady(title) then
+        if title and not WasRecentlyRewarded(title) and IsGreetingQuestReady(title) then
             SelectActiveQuest(i)
             return true
+        end
+    end
+
+    return false
+end
+
+-- Gossip uses a separate quest list. Its active rows can include unfinished
+-- quests, so never select one merely because it is first in the list.
+local function SelectFirstCompletedGossipActiveQuest()
+    if not GetGossipActiveQuests or not SelectGossipActiveQuest then
+        return false
+    end
+
+    local active = { GetGossipActiveQuests() }
+    local questIndex = 0
+    for i = 1, table.getn(active) do
+        if type(active[i]) == "string" then
+            questIndex = questIndex + 1
+            if not WasRecentlyRewarded(active[i]) and IsGreetingQuestReady(active[i]) then
+                SelectGossipActiveQuest(questIndex)
+                return true
+            end
         end
     end
 
@@ -294,11 +358,17 @@ questLogFrame:SetScript("OnEvent", function()
 
     if event == "QUEST_COMPLETE" then
         EndInteraction()
+        if GetTime() < rewardLockedUntil then
+            return
+        end
         if GetNumQuestChoices() == 0 then
+            -- Some Turtle clients emit QUEST_COMPLETE more than once after a
+            -- reward is claimed. Guard the reward API itself, not only the
+            -- greeting list, so a stale completion cannot loop.
+            rewardLockedUntil = GetTime() + 2
+            RememberRewardedQuest()
             GetQuestReward()
-            postRewardRefresh.elapsed = 0
-            postRewardRefresh.passes = 0
-            postRewardRefresh:Show()
+            SchedulePostRewardRefresh()
         elseif QuestFrameRewardPanel.itemChoice and QuestFrameRewardPanel.itemChoice > 0 then
             GetQuestReward(QuestFrameRewardPanel.itemChoice)
         end
@@ -330,6 +400,12 @@ questLogFrame:SetScript("OnEvent", function()
             return
         end
 
+        -- Match normal greetings: completed turn-ins always win over an
+        -- available quest, and unfinished active quests are left alone.
+        if SelectFirstCompletedGossipActiveQuest() then
+            return
+        end
+
         local available = { GetGossipAvailableQuests() }
         local questIndex = 0
         local i = 1
@@ -348,25 +424,6 @@ questLogFrame:SetScript("OnEvent", function()
             else
                 i = i + 1
             end
-        end
-
-        local active = { GetGossipActiveQuests() }
-        questIndex = 0
-        i = 1
-        while i <= table.getn(active) do
-            if type(active[i]) == "string" then
-                questIndex = questIndex + 1
-                local activeTitle = active[i]
-
-                if pfQuest_config["automateRuneclothDonations"] == "1" and string.find(activeTitle, "Additional Runecloth") then
-                    SelectGossipActiveQuest(questIndex)
-                    return
-                end
-
-                SelectGossipActiveQuest(questIndex)
-                return
-            end
-            i = i + 1
         end
 
         -- No gossip row was selected, so a new interaction should be allowed.

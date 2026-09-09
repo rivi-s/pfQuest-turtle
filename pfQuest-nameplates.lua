@@ -161,7 +161,8 @@ local function GetIconFrame(nameplateFrame)
     end
 
     frame:SetParent(nameplateFrame)
-    frame:SetFrameStrata("HIGH")
+    -- Quest decorations belong below ordinary windows and dropdown menus.
+    frame:SetFrameStrata("BACKGROUND")
     frame:SetFrameLevel(nameplateFrame:GetFrameLevel() + 5)
     frame:SetWidth(ICON_SIZE * cachedScale)
     frame:SetHeight(ICON_SIZE * cachedScale)
@@ -188,6 +189,12 @@ end
 
 local function OnNameplateShow(nameplateFrame)
     if not pfQuest_config or pfQuest_config["nameplatesEnabled"] ~= "1" then
+        return
+    end
+
+    if WorldMapFrame and WorldMapFrame:IsShown() then
+        local iconFrame = iconFrames[nameplateFrame]
+        if iconFrame then iconFrame:Hide() end
         return
     end
 
@@ -244,6 +251,21 @@ local function UpdateAllNameplates()
             OnNameplateHide(frame)
         end
     end
+end
+
+-- World-space nameplates can render over a windowed world map even when
+-- their icons use a lower frame level. Suppress our icons while it is open.
+if WorldMapFrame then
+    local previousOnShow = WorldMapFrame:GetScript("OnShow")
+    WorldMapFrame:SetScript("OnShow", function()
+        if previousOnShow then previousOnShow() end
+        for _, iconFrame in pairs(iconFrames) do iconFrame:Hide() end
+    end)
+    local previousOnHide = WorldMapFrame:GetScript("OnHide")
+    WorldMapFrame:SetScript("OnHide", function()
+        if previousOnHide then previousOnHide() end
+        UpdateAllNameplates()
+    end)
 end
 
 local function RedrawAllIcons()

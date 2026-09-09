@@ -1,5 +1,15 @@
 # pfQuest Turtle patch notes
 
+## 1.0.11 — 2026-09-08
+
+- Removed a global diagnostic error handler that failed on clients where debug is a function, masking the original error.
+
+- Improved auto-quest handling to prevent repeated reward attempts and stale quest selection.
+- Prioritize completed gossip quests and leave unfinished active quests alone.
+- Defer post-reward map rebuilds while the world map is closed.
+- Place nameplate quest icons below normal UI windows and menus.
+- Hide nameplate quest icons while the world map is open and restore them when it closes.
+
 ## 1.0.10 — 2026-09-08
 
 - Restored automatic quest nameplate icons on clean and modded Vanilla/Turtle clients.

@@ -5,22 +5,6 @@ local function DebugPrint(msg)
     end
 end
 
-local origErrorHandler = geterrorhandler and geterrorhandler()
-seterrorhandler(function(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[pfQT ERROR]|r " .. tostring(msg))
-    if debug and debug.traceback then
-        local tb = debug.traceback("", 2)
-        if tb and tb ~= "" then
-            for line in string.gfind(tb, "[^\n]+") do
-                DEFAULT_CHAT_FRAME:AddMessage("|cffff8800  " .. line .. "|r")
-            end
-        end
-    end
-    if origErrorHandler then
-        return origErrorHandler(msg)
-    end
-end)
-
 local partyQuestData = {}
 local myQuestMappings = {}
 local lastBroadcastState = {}
