@@ -26,6 +26,7 @@ local function CountEntries(t)
 end
 
 local function BuildDropsForUnit(unitid)
+  unitid = tonumber(unitid) or unitid
   local cached = unitDropsCache[unitid]
   if cached then return cached end
 
@@ -76,6 +77,16 @@ local function BuildQuestStarterIndex()
   end
 end
 
+-- Vanilla returns type/texture at 5/9; newer APIs add itemLevel and use 6/10.
+-- Inspect the result shape because client extensions may backport the API.
+local function GetItemVisualInfo(itemid)
+  local _, _, quality, _, fifth, sixth, _, _, ninth, tenth = GetItemInfo(itemid)
+  if type(fifth) == "string" then
+    return quality, fifth, ninth
+  end
+  return quality, sixth, tenth
+end
+
 local function PassesCategoryFilters(itemid)
   BuildQuestStarterIndex()
 
@@ -86,7 +97,7 @@ local function PassesCategoryFilters(itemid)
   local showGrey = not pfQuest_config or pfQuest_config["lootPanelShowGrey"] ~= "0"
   local showWhite = not pfQuest_config or pfQuest_config["lootPanelShowWhite"] ~= "0"
 
-  local _, _, quality, _, _, itemType = GetItemInfo(itemid)
+  local quality, itemType = GetItemVisualInfo(itemid)
   local isEquip = itemType == "Armor" or itemType == "Weapon"
 
   if isEquip then return showEquip end
@@ -122,9 +133,9 @@ end
 -- This panel is also opened from minimap pins, so it cannot be a child of
 -- WorldMapFrame: that frame is hidden whenever the regular map is closed.
 local panel = CreateFrame("Frame", "pfQuestLootPanel", UIParent)
--- one strata below TOOLTIP (but above DIALOG, which pfUI's map skin uses
--- heavily) so GameTooltip reliably renders above this panel
-panel:SetFrameStrata("FULLSCREEN_DIALOG")
+-- Some older clients render the World Map above FULLSCREEN_DIALOG. TOOLTIP
+-- keeps this independent panel visible while the map remains open.
+panel:SetFrameStrata("TOOLTIP")
 panel:SetFrameLevel(200)
 panel:SetClampedToScreen(true)
 panel:Hide()
@@ -147,10 +158,10 @@ panel:SetBackdropBorderColor(0.6, 0.6, 0.6, 1)
 local closeButton = CreateFrame("Button", nil, panel)
 closeButton:SetWidth(14)
 closeButton:SetHeight(14)
-closeButton:SetPoint("TOPRIGHT", -3, -3)
+closeButton:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -3, -3)
 closeButton:SetFrameLevel(panel:GetFrameLevel() + 10)
 closeButton.text = closeButton:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-closeButton.text:SetPoint("CENTER")
+closeButton.text:SetPoint("CENTER", closeButton, "CENTER", 0, 0)
 closeButton.text:SetText("x")
 closeButton.text:SetTextColor(0.8, 0.3, 0.3)
 closeButton:SetScript("OnEnter", function() closeButton.text:SetTextColor(1, 1, 1) end)
@@ -180,6 +191,26 @@ local function FormatChance(chance)
   return oneDecimal
 end
 
+-- Keep loot tooltips in the same parent hierarchy as the panel so the
+-- fullscreen map cannot cover them. Do not alter the shared GameTooltip.
+local lootTooltip = CreateFrame("GameTooltip", "pfQuestLootItemTooltip", panel, "GameTooltipTemplate")
+lootTooltip:SetFrameStrata("TOOLTIP")
+lootTooltip:Hide()
+panel:SetScript("OnHide", function() lootTooltip:Hide() end)
+
+local function RaiseLootTooltip()
+  -- Reapply after SetOwner/Show, which can reset tooltip layering.
+  lootTooltip:SetParent(panel)
+  lootTooltip:SetFrameStrata("TOOLTIP")
+  local level = panel:GetFrameLevel()
+  if WorldMapTooltip then level = math.max(level, WorldMapTooltip:GetFrameLevel()) end
+  if GameTooltip then level = math.max(level, GameTooltip:GetFrameLevel()) end
+  lootTooltip:SetFrameLevel(level + 100)
+  lootTooltip:Raise()
+end
+
+lootTooltip:SetScript("OnShow", RaiseLootTooltip)
+
 local buttonPool = {}
 
 local function GetButton(index)
@@ -207,30 +238,30 @@ local function GetButton(index)
 
   button:SetScript("OnEnter", function()
     if not button.itemid then return end
-    GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+    lootTooltip:SetOwner(button, "ANCHOR_RIGHT")
 
     local name = GetItemInfo(button.itemid)
-    local linkOk = name and pcall(GameTooltip.SetHyperlink, GameTooltip, "item:" .. button.itemid .. (pfQuestCompat.itemsuffix or ""))
+    local linkOk = name and pcall(lootTooltip.SetHyperlink, lootTooltip, "item:" .. button.itemid .. (pfQuestCompat.itemsuffix or ""))
 
     if not linkOk then
       local localName = pfDB["items"]["enUS"] and pfDB["items"]["enUS"][button.itemid]
-      GameTooltip:SetText(name or ((localName and localName ~= "") and localName or ("Item #" .. button.itemid)), 1, 1, 1)
+      lootTooltip:SetText(name or ((localName and localName ~= "") and localName or ("Item #" .. button.itemid)), 1, 1, 1)
       if not name then
-        GameTooltip:AddLine("Item data unavailable", 0.6, 0.6, 0.6)
+        lootTooltip:AddLine("Item data unavailable", 0.6, 0.6, 0.6)
       end
     end
 
     if button.chance and button.chance > 0 then
-      GameTooltip:AddLine("Drop chance: " .. FormatChance(button.chance), 0.6, 0.9, 1)
+      lootTooltip:AddLine("Drop chance: " .. FormatChance(button.chance), 0.6, 0.9, 1)
     end
 
-    GameTooltip:SetFrameLevel(panel:GetFrameLevel() + 10)
-    GameTooltip:Show()
-    GameTooltip:SetFrameLevel(panel:GetFrameLevel() + 10)
+    RaiseLootTooltip()
+    lootTooltip:Show()
+    RaiseLootTooltip()
   end)
 
   button:SetScript("OnLeave", function()
-    GameTooltip:Hide()
+    lootTooltip:Hide()
   end)
 
   buttonPool[index] = button
@@ -259,6 +290,7 @@ local pinned = false
 local pinnedUnitId = nil
 
 function pfQuestLoot.Hide()
+  pfQuestLoot.lastHideTrace = pfQuestLoot.lastHideTrace or "direct"
   pinned = false
   pinnedUnitId = nil
   panel.openedFromWorldMap = nil
@@ -266,13 +298,19 @@ function pfQuestLoot.Hide()
 end
 
 local function ApplyItemVisuals(button, itemid)
-  local _, _, quality = GetItemInfo(itemid)
-  button.icon:SetTexture(GetItemIcon(itemid) or FALLBACK_ICON)
+  local quality, _, itemTexture = GetItemVisualInfo(itemid)
+  if not itemTexture then
+    local linkQuality, _, linkTexture = GetItemVisualInfo("item:" .. itemid)
+    quality = quality or linkQuality
+    itemTexture = linkTexture
+  end
+  local icon = GetItemIcon and GetItemIcon(itemid) or itemTexture or FALLBACK_ICON
+  button.icon:SetTexture(icon)
 
   if quality and ITEM_QUALITY_COLORS[quality] then
     local c = ITEM_QUALITY_COLORS[quality]
     button.border:SetVertexColor(c.r, c.g, c.b, 1)
-    return true
+    return icon ~= FALLBACK_ICON
   end
 
   button.border:SetVertexColor(0.4, 0.4, 0.4, 1)
@@ -324,22 +362,72 @@ local function PopulateGrid(unitid, topOffset)
   return true, width, gridHeight
 end
 
+-- Report actual client returns instead of assuming which API extensions exist.
+SLASH_PFQUESTLOOTICONS1 = "/pflooticons"
+SlashCmdList["PFQUESTLOOTICONS"] = function()
+  local function Report(itemid, label)
+    local values = { GetItemInfo(itemid) }
+    local parts = {}
+    for i = 1, 10 do
+      table.insert(parts, i .. "=" .. tostring(values[i]))
+    end
+    DEFAULT_CHAT_FRAME:AddMessage(label .. " " .. itemid .. ": " .. table.concat(parts, " / "))
+    if GetItemIcon then
+      local ok, icon = pcall(GetItemIcon, itemid)
+      DEFAULT_CHAT_FRAME:AddMessage("GetItemIcon: " .. tostring(ok) .. " / " .. tostring(icon))
+    end
+  end
+  DEFAULT_CHAT_FRAME:AddMessage("pfQuest icons diagnostic v2; client=" .. tostring(pfQuestCompat.client) .. " GetItemIcon=" .. type(GetItemIcon))
+  Report(6948, "Hearthstone")
+  local count = 0
+  for i = 1, table.getn(buttonPool) do
+    local button = buttonPool[i]
+    if button:IsShown() and button.itemid then
+      Report(button.itemid, "Loot")
+      DEFAULT_CHAT_FRAME:AddMessage("Rendered texture: " .. tostring(button.icon:GetTexture()))
+      count = count + 1
+      if count == 2 then break end
+    end
+  end
+  if count == 0 then DEFAULT_CHAT_FRAME:AddMessage("Open a rare-loot panel first to inspect its items.") end
+end
+
 function pfQuestLoot.HasDrops(unitid)
   local drops = unitid and GetVisibleDrops(unitid)
   return drops ~= nil and table.getn(drops) > 0
 end
 
+function pfQuestLoot.GetDebugState()
+  return "shown=" .. tostring(panel:IsShown()) ..
+    " pinned=" .. tostring(pinned) ..
+    " unit=" .. tostring(pinnedUnitId) ..
+    " click=" .. tostring(pfQuestLoot.lastClickTrace) ..
+    " show=" .. tostring(pfQuestLoot.lastShowTrace) ..
+    " hide=" .. tostring(pfQuestLoot.lastHideTrace)
+end
+
 function pfQuestLoot.ShowPinned(nodeFrame)
+  pfQuestLoot.lastShowTrace = "entered"
+  pfQuestLoot.lastHideTrace = nil
   local unitid = nodeFrame and nodeFrame.spawnid
-  if not unitid then return end
+  if not unitid then
+    pfQuestLoot.lastShowTrace = "no unit"
+    return
+  end
+  unitid = tonumber(unitid) or unitid
 
   if pinned and pinnedUnitId == unitid then
+    pfQuestLoot.lastShowTrace = "toggle hide"
+    pfQuestLoot.lastHideTrace = "toggle"
     pfQuestLoot.Hide()
     return
   end
 
   local unitData = pfDB["units"]["data"][unitid]
-  if not unitData then return end
+  if not unitData then
+    pfQuestLoot.lastShowTrace = "no unit data"
+    return
+  end
 
   local headerLines = {
     "|cff4dffcc" .. (nodeFrame.spawn or UNKNOWN) .. "|r",
@@ -384,28 +472,65 @@ function pfQuestLoot.ShowPinned(nodeFrame)
   panel:SetHeight(headerHeight + PANEL_MARGIN + (ok and gridHeight or noItemsHeight))
 
   panel:ClearAllPoints()
-  if panel.openedFromWorldMap then
+  -- Capture the pin's position once. Older clients close the World Map as
+  -- part of the click path, so anchoring to the pin would hide this panel.
+  if panel.openedFromWorldMap and WorldMapFrame then
+    -- This older map implementation is drawn above UIParent siblings. Make
+    -- the panel part of the map UI so it is visible in front of map pins.
+    panel:SetParent(WorldMapFrame)
+    panel:SetFrameLevel(WorldMapFrame:GetFrameLevel() + 100)
     panel:SetPoint("TOPLEFT", nodeFrame, "BOTTOMLEFT", 0, -6)
   else
-    -- A minimap pin is repositioned as the player moves. Capture its screen
-    -- position once so the loot panel does not visibly chase it around.
-    panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", nodeFrame:GetLeft(), nodeFrame:GetBottom() - 6)
+    panel:SetParent(UIParent)
+    local left, bottom = nodeFrame:GetLeft(), nodeFrame:GetBottom()
+    if left and bottom then
+      panel:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, bottom - 6)
+    else
+      panel:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
+    end
   end
 
   panel:Show()
+  panel:Raise()
+  pfQuestLoot.lastShowTrace = "shown"
 end
 
 local pendingQualityElapsed = 0
+local itemQueryTooltip
+local itemQueryAttempts = {}
+local itemQueryTimes = {}
+
+local function RequestItemData(itemid)
+  local now = GetTime()
+  if (itemQueryAttempts[itemid] or 0) >= 3 then return false end
+  if itemQueryTimes[itemid] and now - itemQueryTimes[itemid] < 5 then return false end
+  itemQueryAttempts[itemid] = (itemQueryAttempts[itemid] or 0) + 1
+  itemQueryTimes[itemid] = now
+  -- GetItemInfo only reads the old client's cache. A hyperlink tooltip
+  -- requests the missing record; keep this separate from the visible tooltip.
+  if not itemQueryTooltip then
+    itemQueryTooltip = CreateFrame("GameTooltip", "pfQuestLootItemQueryTooltip", UIParent, "GameTooltipTemplate")
+  end
+  itemQueryTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+  pcall(itemQueryTooltip.SetHyperlink, itemQueryTooltip,
+    "item:" .. itemid .. (pfQuestCompat.itemsuffix or ":0:0:0"))
+  itemQueryTooltip:Hide()
+  return true
+end
+
 panel:SetScript("OnUpdate", function()
   pendingQualityElapsed = pendingQualityElapsed + (arg1 or 0)
   if pendingQualityElapsed < 0.5 then return end
   pendingQualityElapsed = 0
 
+  local requested = false
   for i = 1, table.getn(buttonPool) do
     local button = buttonPool[i]
     if button and button:IsShown() and button.pendingQualityItem then
       if ApplyItemVisuals(button, button.pendingQualityItem) then
         button.pendingQualityItem = nil
+      elseif not requested then
+        requested = RequestItemData(button.pendingQualityItem)
       end
     end
   end
@@ -414,14 +539,20 @@ end)
 local mapWatcher = CreateFrame("Frame")
 mapWatcher:RegisterEvent("WORLD_MAP_UPDATE")
 mapWatcher:SetScript("OnEvent", function()
-  if panel.openedFromWorldMap then pfQuestLoot.Hide() end
+  unitDropsCache = {}
 end)
 
 if WorldMapFrame then
-  WorldMapFrame:HookScript("OnHide", function()
-    if panel.openedFromWorldMap then pfQuestLoot.Hide() end
+  local previousOnHide = WorldMapFrame:GetScript("OnHide")
+  WorldMapFrame:SetScript("OnHide", function()
+    if previousOnHide then previousOnHide() end
+    if panel.openedFromWorldMap then
+      pfQuestLoot.lastHideTrace = "world map hide"
+      pfQuestLoot.Hide()
+      panel:SetParent(UIParent)
+    end
+    unitDropsCache = {}
   end)
-  WorldMapFrame:HookScript("OnHide", function() unitDropsCache = {} end)
 end
 
 local function ExtendPfQuestConfig()
@@ -541,3 +672,4 @@ end
 local configExtenderFrame = CreateFrame("Frame")
 configExtenderFrame:RegisterEvent("VARIABLES_LOADED")
 configExtenderFrame:SetScript("OnEvent", ExtendPfQuestConfig)
+if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end

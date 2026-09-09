@@ -35,6 +35,7 @@ configExtenderFrame:RegisterEvent("VARIABLES_LOADED")
 configExtenderFrame:SetScript("OnEvent", function()
     ExtendPfQuestConfig()
 end)
+if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end
 
 function ResizeArrow()
     local scale = tonumber(pfQuest_config["arrowscale"]) or 1
@@ -102,7 +103,11 @@ pfQuest.route.arrow:SetScript("OnUpdate", function()
             wasDeadLastFrame = true
         end
 
-        local cx, cy = GetCorpseMapPosition()
+        -- A few older 1.12 client builds do not expose corpse map coordinates.
+        local cx, cy
+        if GetCorpseMapPosition then
+            cx, cy = GetCorpseMapPosition()
+        end
         -- corpse coords are 0-1; ignore if invalid (0,0)
         if cx and cy and (cx > 0 or cy > 0) then
             local xplayer, yplayer = GetPlayerMapPosition("player")
@@ -117,8 +122,9 @@ pfQuest.route.arrow:SetScript("OnUpdate", function()
             local angle = math.rad(dir) - pfQuestCompat.GetPlayerFacing()
 
             -- rotate the arrow model to point at corpse
-            local cell = floor(angle / (2 * math.pi) * 108 + .5) % 108
-            local col = cell % 9
+            -- Lua 5.0 (the 1.12 client) has no % operator.
+            local cell = math.mod(floor(angle / (2 * math.pi) * 108 + .5), 108)
+            local col = math.mod(cell, 9)
             local row = floor(cell / 9)
             this.model:SetTexCoord(
                 (col * 56) / 512, ((col + 1) * 56) / 512,

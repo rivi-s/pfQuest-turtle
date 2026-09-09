@@ -23,8 +23,8 @@ local function ScanQuestObjectives()
 
     local activeQuests = {}
     for qid = 1, GetNumQuestLogEntries() do
-        local questTitle, _, _, _, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
-        if questTitle and complete ~= 1 then
+        local questTitle, _, _, isHeader, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
+        if questTitle and not isHeader and complete ~= 1 then
             local questIds = pfDatabase:GetQuestIDs(qid)
             local questId = questIds and tonumber(questIds[1])
             if questId then
@@ -34,8 +34,8 @@ local function ScanQuestObjectives()
 
             for i = 1, numObjectives do
                 local text, objType, finished = GetQuestLogLeaderBoard(i, qid)
-                if text and not finished then
-                    local objName, current, total = string.match(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
+                if text and finished ~= true and finished ~= 1 then
+                    local _, _, objName, current, total = string.find(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
                     if objName and questId then
                         objName = string.gsub(objName, "^%s*(.-)%s*$", "%1")
                         table.insert(activeQuests[questId], {
@@ -61,9 +61,11 @@ local function ScanQuestObjectives()
                             local targetName = pfDB["units"]["enUS"][unitId]
 
                             for _, activeObj in ipairs(activeObjectives) do
-                                local objNameBase = activeObj.objective:gsub(" slain$", ""):gsub(" killed$", "")
-                                if objNameBase == targetName or activeObj.objective:find(targetName, 1, true) then
-                                    if activeObj.current < activeObj.total then
+                                if type(activeObj) == "table" and type(activeObj.objective) == "string" then
+                                    local objNameBase = string.gsub(activeObj.objective, " slain$", "")
+                                    objNameBase = string.gsub(objNameBase, " killed$", "")
+                                    if (objNameBase == targetName or string.find(activeObj.objective, targetName, 1, true)) and
+                                       (activeObj.current or 0) < (activeObj.total or 0) then
                                         questObjectives[targetName] = SWORD_ICON
                                     end
                                 end
@@ -88,8 +90,9 @@ local function ScanQuestObjectives()
                                         local npcName = pfDB["units"]["enUS"][unitId]
 
                                         for _, activeObj in ipairs(activeObjectives) do
-                                            if itemName and activeObj.objective:find(itemName, 1, true) then
-                                                if activeObj.current < activeObj.total then
+                                            if type(activeObj) == "table" and type(activeObj.objective) == "string" and
+                                               itemName and string.find(activeObj.objective, itemName, 1, true) then
+                                                if (activeObj.current or 0) < (activeObj.total or 0) then
                                                     questObjectives[npcName] = BAG_ICON
                                                 end
                                             end
@@ -100,14 +103,14 @@ local function ScanQuestObjectives()
                         end
                     end
                 end
-            end
+	            end
 end
 end
 
 local function IsNameplate(frame)
     if not frame then return false end
 
-    if frame.UnitFrame or frame.extended or frame.aloftData or frame.kui then
+    if frame.nameplate or frame.UnitFrame or frame.extended or frame.aloftData or frame.kui then
         return true
     end
 
@@ -121,7 +124,7 @@ local function IsNameplate(frame)
         end
 
         if texture == "" or texture == nil then
-            local nameRegion = select(NAME_REGION_INDEX, frame:GetRegions())
+            local nameRegion = ({ frame:GetRegions() })[NAME_REGION_INDEX]
             if nameRegion and nameRegion.GetObjectType and nameRegion:GetObjectType() == "FontString" then
                 return true
             end
@@ -214,19 +217,16 @@ local function OnNameplateHide(nameplateFrame)
     RemoveIconFrame(nameplateFrame)
 end
 
-local function ScanWorldFrameChildren(...)
-    local numFrames = select('#', ...)
+local function ScanWorldFrameChildren(frames)
+    local numFrames = table.getn(frames)
 
     for i = 1, numFrames do
-        local frame = select(i, ...)
+        local frame = frames[i]
 
         if frame and not nameplateFrames[frame] and IsNameplate(frame) then
-            local nameText = select(NAME_REGION_INDEX, frame:GetRegions())
+            local nameText = ({ frame:GetRegions() })[NAME_REGION_INDEX]
             if nameText and nameText:GetObjectType() == "FontString" then
                 nameplateFrames[frame] = nameText
-
-                frame:HookScript("OnShow", OnNameplateShow)
-                frame:HookScript("OnHide", OnNameplateHide)
 
                 if frame:IsShown() then
                     OnNameplateShow(frame)
@@ -240,6 +240,8 @@ local function UpdateAllNameplates()
     for frame, nameText in pairs(nameplateFrames) do
         if frame:IsShown() then
             OnNameplateShow(frame)
+        else
+            OnNameplateHide(frame)
         end
     end
 end
@@ -289,19 +291,14 @@ local function StartConfigMonitor()
     end)
 end
 
-local function StopConfigMonitor()
-    if configMonitor then
-        configMonitor:SetScript("OnUpdate", nil)
-    end
-end
-
 local lastNumChildren = 0
-local SCAN_INTERVAL = 0.05
+local SCAN_INTERVAL = 0.2
 
 StartNameplateWatcher = function()
     if ticker then return end
 
     UpdateCachedSettings()
+    lastNumChildren = -1
 
     ticker = CreateFrame("Frame")
     ticker.elapsed = 0
@@ -312,8 +309,9 @@ StartNameplateWatcher = function()
             local numChildren = WorldFrame:GetNumChildren()
             if numChildren ~= lastNumChildren then
                 lastNumChildren = numChildren
-                ScanWorldFrameChildren(WorldFrame:GetChildren())
+                ScanWorldFrameChildren({ WorldFrame:GetChildren() })
             end
+            UpdateAllNameplates()
             this.elapsed = 0
         end
     end)
@@ -327,7 +325,7 @@ StopNameplateWatcher = function()
         ticker = nil
     end
 
-    StopConfigMonitor()
+    -- Keep the config monitor alive so the checkbox can enable us again.
 end
 
 local eventFrame = CreateFrame("Frame")
@@ -337,6 +335,7 @@ eventFrame:RegisterEvent("ZONE_CHANGED")
 eventFrame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 local objectiveScan = CreateFrame("Frame")
 local function QueueObjectiveScan()
+    if objectiveScan:GetScript("OnUpdate") then return end
     objectiveScan.elapsed = 0
     objectiveScan:SetScript("OnUpdate", function()
         this.elapsed = this.elapsed + arg1
@@ -350,39 +349,6 @@ end
 
 eventFrame:SetScript("OnEvent", QueueObjectiveScan)
 
-local initFrame = CreateFrame("Frame")
-initFrame:RegisterEvent("ADDON_LOADED")
-initFrame:SetScript("OnEvent", function()
-    if arg1 == "pfQuest-turtle" then
-        local timer = 0
-        local rebuildRetries = 0
-        this:SetScript("OnUpdate", function()
-            timer = timer + 1
-
-            if rebuildRetries < 50 and (not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"]) then
-                if timer % 5 == 0 then
-                    rebuildRetries = rebuildRetries + 1
-                    if pfDB and pfDB["quests"] and pfDB["quests"]["data"] then
-                        QueueObjectiveScan()
-                        if pfQuest_config and pfQuest_config["nameplatesEnabled"] == "1" then
-                            StartNameplateWatcher()
-                        end
-                    end
-                end
-            end
-
-            if timer > 30 then
-                QueueObjectiveScan()
-                if pfQuest_config and pfQuest_config["nameplatesEnabled"] == "1" then
-                    StartNameplateWatcher()
-                end
-                this:SetScript("OnUpdate", nil)
-                this:UnregisterAllEvents()
-            end
-        end)
-    end
-end)
-
 local function ExtendPfQuestConfig()
     local found = false
     for _, entry in pairs(pfQuest_defconfig) do
@@ -392,15 +358,13 @@ local function ExtendPfQuestConfig()
         end
     end
 
-    if found then
-        return
+    if not found then
+        table.insert(pfQuest_defconfig, { text = "|cff33ffccNameplates|r", type = "header" })
+        table.insert(pfQuest_defconfig, { text = "Show Quest Icons on Nameplates", default = "1", type = "checkbox", config = "nameplatesEnabled" })
+        table.insert(pfQuest_defconfig, { text = "Icon Scale", default = "1", type = "text", config = "nameplateScale" })
+        table.insert(pfQuest_defconfig, { text = "Icon X Position", default = "-20", type = "text", config = "nameplateX" })
+        table.insert(pfQuest_defconfig, { text = "Icon Y Position", default = "-8", type = "text", config = "nameplateY" })
     end
-
-    table.insert(pfQuest_defconfig, { text = "|cff33ffccNameplates|r", type = "header" })
-    table.insert(pfQuest_defconfig, { text = "Show Quest Icons on Nameplates", default = "1", type = "checkbox", config = "nameplatesEnabled" })
-    table.insert(pfQuest_defconfig, { text = "Icon Scale", default = "1", type = "text", config = "nameplateScale" })
-    table.insert(pfQuest_defconfig, { text = "Icon X Position", default = "-20", type = "text", config = "nameplateX" })
-    table.insert(pfQuest_defconfig, { text = "Icon Y Position", default = "-8", type = "text", config = "nameplateY" })
 
     pfQuest_config["nameplatesEnabled"] = pfQuest_config["nameplatesEnabled"] or "1"
     pfQuest_config["nameplateScale"] = pfQuest_config["nameplateScale"] or "1"
@@ -420,12 +384,22 @@ local function HookConfigWindow()
     end
 end
 
-local configExtenderFrame = CreateFrame("Frame")
-configExtenderFrame:RegisterEvent("VARIABLES_LOADED")
-configExtenderFrame:SetScript("OnEvent", function()
+local initialized = false
+local function InitializeNameplates()
+    if initialized or not pfQuest_defconfig or not pfQuest_config then return end
+    initialized = true
     ExtendPfQuestConfig()
     HookConfigWindow()
-end)
+    lastEnabled = pfQuest_config["nameplatesEnabled"]
+    StartConfigMonitor()
+    if lastEnabled == "1" then StartNameplateWatcher() end
+    QueueObjectiveScan()
+end
+local configExtenderFrame = CreateFrame("Frame")
+configExtenderFrame:RegisterEvent("VARIABLES_LOADED")
+configExtenderFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+configExtenderFrame:SetScript("OnEvent", InitializeNameplates)
+InitializeNameplates()
 
 SLASH_PFQUESTNP1 = "/pfqnp"
 SlashCmdList["PFQUESTNP"] = function(msg)
@@ -471,11 +445,12 @@ SlashCmdList["PFQUESTNP"] = function(msg)
                 depth = depth + 1
             end
 
+            if not frame then return end
             DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest-turtle:|r Inspecting frame under mouse (walked up " .. depth .. " parent(s))")
             DEFAULT_CHAT_FRAME:AddMessage("  Name: " .. tostring(frame:GetName()))
             DEFAULT_CHAT_FRAME:AddMessage("  ObjectType: " .. tostring(frame:GetObjectType()))
             DEFAULT_CHAT_FRAME:AddMessage("  Parent is WorldFrame: " .. tostring(frame:GetParent() == WorldFrame))
-            DEFAULT_CHAT_FRAME:AddMessage("  Region count: " .. select('#', frame:GetRegions()))
+            DEFAULT_CHAT_FRAME:AddMessage("  Region count: " .. table.getn({ frame:GetRegions() }))
             DEFAULT_CHAT_FRAME:AddMessage("  Child count: " .. frame:GetNumChildren())
 
             local r1 = frame:GetRegions()
@@ -488,7 +463,7 @@ SlashCmdList["PFQUESTNP"] = function(msg)
                 DEFAULT_CHAT_FRAME:AddMessage("  Region 1: none")
             end
 
-            local r3 = select(3, frame:GetRegions())
+            local r3 = ({ frame:GetRegions() })[3]
             if r3 and r3.GetObjectType then
                 DEFAULT_CHAT_FRAME:AddMessage("  Region 3 type: " .. tostring(r3:GetObjectType()))
                 if r3:GetObjectType() == "FontString" then

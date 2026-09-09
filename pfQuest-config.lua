@@ -223,6 +223,8 @@ local function RebuildConfigUI()
     return true
 end
 
+pfQuest.RebuildConfigUI = RebuildConfigUI
+
 local function OnConfigUIRebuilt()
     ResizeArrow()
 end

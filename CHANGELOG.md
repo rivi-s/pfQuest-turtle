@@ -1,5 +1,14 @@
 # pfQuest Turtle patch notes
 
+## 1.0.10 — 2026-09-08
+
+- Restored automatic quest nameplate icons on clean and modded Vanilla/Turtle clients.
+- Fixed nameplate refresh, completed-objective cleanup, and configuration toggling.
+- Fixed rare-loot panels and item tooltips appearing behind the world map.
+- Added throttled requests for uncached loot items and support for old item-icon API layouts.
+- Continent/world-map pins now respect objective spawn and cluster visibility settings.
+- Improved compatibility and settings registration on older clients.
+
 ## 2026-09-07
 
 - Added 1,329 missing Russian quest translations from the newer Turtle data while retaining the current Turtle database and feature set.

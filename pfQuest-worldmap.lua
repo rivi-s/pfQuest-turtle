@@ -538,7 +538,14 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                                             worldMapX * WorldMapButton:GetWidth(),
                                             -worldMapY * WorldMapButton:GetHeight()
                                         )
-                                        pin:Show()
+                                        -- Match zone-map display preferences on continent/world maps.
+                                        if pfQuest_config["showcluster"] == "0" and pin.cluster then
+                                            pin:Hide()
+                                        elseif pfQuest_config["showspawn"] == "0" and addon == "PFQUEST" and not pin.texture then
+                                            pin:Hide()
+                                        else
+                                            pin:Show()
+                                        end
 
                                         if CONTINENT_DEBUG and not stats.zonesSampled[zID] then
                                             stats.zonesSampled[zID] = true
@@ -693,3 +700,4 @@ f:RegisterEvent("VARIABLES_LOADED")
 f:SetScript("OnEvent", function()
     ExtendPfQuestConfig()
 end)
+if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end

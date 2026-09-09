@@ -8,8 +8,8 @@ end
 
 local function formatVersion(versionNum)
   local major = math.floor(versionNum / 10000)
-  local minor = math.floor((versionNum % 10000) / 100)
-  local fix = versionNum % 100
+  local minor = math.floor((math.mod(versionNum, 10000)) / 100)
+  local fix = math.mod(versionNum, 100)
   return major .. "." .. minor .. "." .. fix
 end
 
@@ -33,7 +33,8 @@ local ADMIN_NAME = "Beckylava"
 
 local function StripRealmName(fullName)
     if fullName and string.find(fullName, "-") then
-        return string.match(fullName, "^([^-]+)")
+        local _, _, name = string.find(fullName, "^([^-]+)")
+        return name
     end
     return fullName
 end

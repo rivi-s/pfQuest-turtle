@@ -58,6 +58,7 @@ configExtenderFrame:RegisterEvent("VARIABLES_LOADED")
 configExtenderFrame:SetScript("OnEvent", function()
     ExtendPfQuestConfig()
 end)
+if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end
 
 local questLogFrame = CreateFrame("Frame")
 questLogFrame:RegisterEvent("QUEST_DETAIL")

@@ -29,7 +29,7 @@ local function FindQuestForObjective(objectiveName)
                 local description = GetQuestLogLeaderBoard(j)
 
                 if description then
-                    local objName = string.match(description, "(.*):%s*[-%d]+%s*/%s*[-%d]+%s*$")
+                    local _, _, objName = string.find(description, "(.*):%s*[-%d]+%s*/%s*[-%d]+%s*$")
 
                     if objName and string.find(string.lower(objName), string.lower(objectiveName), 1, true) then
                         SelectQuestLogEntry(originalSelection)
@@ -136,7 +136,7 @@ local function OnQuestUpdate(message, previewOnly)
         return
     end
 
-    local itemName, numItems, numNeeded = string.match(message, "(.*):%s*([-%d]+)%s*/%s*([-%d]+)%s*$")
+    local _, _, itemName, numItems, numNeeded = string.find(message, "(.*):%s*([-%d]+)%s*/%s*([-%d]+)%s*$")
 
     if itemName and numItems and numNeeded then
         local iNumItems = tonumber(numItems)
@@ -251,6 +251,7 @@ configExtenderFrame:RegisterEvent("VARIABLES_LOADED")
 configExtenderFrame:SetScript("OnEvent", function()
     ExtendPfQuestConfig()
 end)
+if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end
 
 local function SetupAnnounceCommands()
     local currentHandler = SlashCmdList["PFDB"]

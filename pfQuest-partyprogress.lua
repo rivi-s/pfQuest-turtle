@@ -63,7 +63,7 @@ local function RebuildQuestMappings()
             for i = 1, numObjectives do
                 local text, objType, finished = GetQuestLogLeaderBoard(i, qid)
                 if text then
-                    local objName, current, total = string.match(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
+                    local _, _, objName, current, total = string.find(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
                     if objName then
                         objName = string.gsub(objName, "^%s*(.-)%s*$", "%1")
                         table.insert(activeQuests[questTitle], {
@@ -89,8 +89,9 @@ local function RebuildQuestMappings()
                             local targetName = pfDB["units"]["enUS"][unitId]
 
                             for _, activeObj in ipairs(activeQuests[questTitle]) do
-                                local objNameBase = activeObj.objective:gsub(" slain$", ""):gsub(" killed$", "")
-                                if objNameBase == targetName or activeObj.objective:find(targetName, 1, true) then
+                                local objNameBase = string.gsub(activeObj.objective, " slain$", "")
+                                objNameBase = string.gsub(objNameBase, " killed$", "")
+                                if objNameBase == targetName or string.find(activeObj.objective, targetName, 1, true) then
                                     if not myQuestMappings[targetName] then
                                         myQuestMappings[targetName] = {}
                                     end
@@ -141,7 +142,7 @@ local function RebuildQuestMappings()
                                         local npcName = pfDB["units"]["enUS"][unitId]
 
                                         for _, activeObj in ipairs(activeQuests[questTitle]) do
-                                            if itemName and activeObj.objective:find(itemName, 1, true) then
+                                            if itemName and string.find(activeObj.objective, itemName, 1, true) then
                                                 if not myQuestMappings[npcName] then
                                                     myQuestMappings[npcName] = {}
                                                 end
@@ -184,7 +185,7 @@ local function RebuildQuestMappings()
                                         local objName = pfDB["objects"]["enUS"][objectId]
 
                                         for _, activeObj in ipairs(activeQuests[questTitle]) do
-                                            if itemName and activeObj.objective:find(itemName, 1, true) then
+                                            if itemName and string.find(activeObj.objective, itemName, 1, true) then
                                                 if not myQuestMappings[objName] then
                                                     myQuestMappings[objName] = {}
                                                 end
@@ -323,7 +324,7 @@ local function ShareQuestData(forceFullSync)
                         local text = GetQuestLogLeaderBoard(i, qid)
 
                         if text then
-                            local objName, current, total = string.match(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
+                            local _, _, objName, current, total = string.find(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
                             if objName then
                                 objName = string.gsub(objName, "^%s*(.-)%s*$", "%1")
 
@@ -429,7 +430,7 @@ local function ProcessQuestData(sender, message)
         return
     end
 
-    local removeQuestId, removeQuestTitle = string.match(message, "^REMOVEQ:(%d+):(.+)$")
+    local _, _, removeQuestId, removeQuestTitle = string.find(message, "^REMOVEQ:(%d+):(.+)$")
     if removeQuestId and removeQuestTitle then
         if partyQuestData[sender] then
             for targetKey, quests in pairs(partyQuestData[sender]) do
@@ -459,8 +460,8 @@ local function ProcessQuestData(sender, message)
         end
 
         for _, entry in ipairs(entries) do
-            local targetType, targetId, questId, current, total, objectiveText =
-                string.match(entry, "^([UIO])(%d+)Q(%d+):(%d+):(%d+):(.*)$")
+            local _, _, targetType, targetId, questId, current, total, objectiveText =
+                string.find(entry, "^([UIO])(%d+)Q(%d+):(%d+):(%d+):(.*)$")
 
             if targetType and targetId and questId and current and total then
                 targetId = tonumber(targetId)
@@ -738,7 +739,7 @@ local function HookPfQuestTooltip()
                             local text = GetQuestLogLeaderBoard(i, qid)
 
                             if text then
-                                local objName, current, total = string.match(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
+                                local _, _, objName, current, total = string.find(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
                                 if objName and current and total then
                                     objName = string.gsub(objName, "^%s*(.-)%s*$", "%1")
                                     if string.len(objName) > 0 then
@@ -882,7 +883,7 @@ configExtenderFrame:SetScript("OnEvent", function()
         timer = timer + 1
 
         if rebuildRetries < 50 and (not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"]) then
-            if timer % 5 == 0 then
+            if math.mod(timer, 5) == 0 then
                 rebuildRetries = rebuildRetries + 1
                 if pfDB and pfDB["quests"] and pfDB["quests"]["data"] then
                     RebuildQuestMappings()
@@ -905,6 +906,7 @@ configExtenderFrame:SetScript("OnEvent", function()
         end
     end)
 end)
+if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end
 
 SLASH_PFQUESTDEBUG1 = "/pfqd"
 SlashCmdList["PFQUESTDEBUG"] = function(msg)

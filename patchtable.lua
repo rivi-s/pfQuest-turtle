@@ -750,7 +750,7 @@ pfMap.NodeEnter = function()
 
       tooltip:AddLine(text, .6, .6, .6)
 
-      if this.spawnid and pfQuestLoot.HasDrops(this.spawnid) then
+      if this.spawnid and pfQuestLoot and pfQuestLoot.HasDrops and pfQuestLoot.HasDrops(this.spawnid) then
         tooltip:AddLine(pfQuest_Loc["Alt-Click To Show Item Drops"] or "Alt-Click To Show Item Drops", .6, .6, .6)
       end
 
@@ -763,8 +763,11 @@ end
 
 local originalNodeClick = pfMap.NodeClick
 pfMap.NodeClick = function()
+  if pfQuestLoot then
+    pfQuestLoot.lastClickTrace = "map alt=" .. tostring(IsAltKeyDown()) .. " spawn=" .. tostring(this and this.spawnid)
+  end
   if IsAltKeyDown() and this.spawnid then
-    if pfQuestLoot.HasDrops(this.spawnid) then
+    if pfQuestLoot and pfQuestLoot.HasDrops and pfQuestLoot.ShowPinned and pfQuestLoot.HasDrops(this.spawnid) then
       local ok, err = pcall(pfQuestLoot.ShowPinned, this)
       if not ok then
         DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[pfQuest-turtle]|r ShowPinned error: " .. tostring(err))
@@ -782,9 +785,13 @@ end
 -- after every minimap update and retain it for ordinary clicks.
 local function MinimapLootNodeClick()
   local altClick = IsAltKeyDown() or this.lootPanelAltMouseDown
+  if pfQuestLoot then
+    pfQuestLoot.lastClickTrace = "pin alt=" .. tostring(altClick) .. " spawn=" .. tostring(this.spawnid)
+    pfQuestLoot.lastClickedNode = this
+  end
   this.lootPanelAltMouseDown = nil
   if altClick and this.spawnid then
-    if pfQuestLoot.HasDrops(this.spawnid) then
+    if pfQuestLoot and pfQuestLoot.HasDrops and pfQuestLoot.ShowPinned and pfQuestLoot.HasDrops(this.spawnid) then
       local ok, err = pcall(pfQuestLoot.ShowPinned, this)
       if not ok then
         DEFAULT_CHAT_FRAME:AddMessage("|cffff0000[pfQuest-turtle]|r ShowPinned error: " .. tostring(err))
@@ -802,7 +809,9 @@ local originalUpdateNode = pfMap.UpdateNode
 pfMap.UpdateNode = function(self, frame, node, color, obj, distance)
   originalUpdateNode(self, frame, node, color, obj, distance)
 
-  if obj == "minimap" and frame.spawnid and frame:GetScript("OnClick") ~= MinimapLootNodeClick then
+  -- Older clients bind node clicks directly to the pin frame, so wrap every
+  -- spawn pin rather than relying on the map-level click callback.
+  if frame.spawnid and frame:GetScript("OnClick") ~= MinimapLootNodeClick then
     frame.lootPanelOriginalClick = frame:GetScript("OnClick")
     frame:SetScript("OnClick", MinimapLootNodeClick)
     frame:SetScript("OnMouseDown", function()
@@ -828,5 +837,9 @@ local function RebindUnitResultTooltips()
 end
 
 if pfBrowser and pfBrowser.input then
-  pfBrowser.input:HookScript("OnTextChanged", RebindUnitResultTooltips)
+  local previous = pfBrowser.input:GetScript("OnTextChanged")
+  pfBrowser.input:SetScript("OnTextChanged", function()
+    if previous then previous() end
+    RebindUnitResultTooltips()
+  end)
 end

@@ -120,6 +120,10 @@ loader:SetScript("OnEvent", function()
   local elapsed = 0
   loader:SetScript("OnUpdate", function()
     elapsed = elapsed + arg1
+    if elapsed >= 0.2 and not loader.configRebuilt and pfQuest and pfQuest.RebuildConfigUI then
+      pfQuest.RebuildConfigUI()
+      loader.configRebuilt = true
+    end
     -- The feature config rebuild runs for a few frames after VARIABLES_LOADED.
     -- Wait for it before applying the persisted scale.
     if elapsed >= 1 and (InstallConfigResize() or elapsed > 5) then
