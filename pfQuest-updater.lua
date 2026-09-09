@@ -148,7 +148,7 @@ pfqtupdater:SetScript("OnEvent", function()
                         local availableVer = formatVersion(remotever)
                         DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest |cffcccccc[TurtleWoW DB]|r New version available!")
                         DEFAULT_CHAT_FRAME:AddMessage("Current: |cff66ccff" .. currentVer .. "|r -> Available: |cff66ccff" .. availableVer .. "|r")
-                        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffhttps://github.com/Bennylavaa/pfQuest-turtle/releases|r")
+                        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffhttps://github.com/rivi-s/pfQuest-turtle/releases|r")
                         alreadyshown = true
                     end
                 end
@@ -198,7 +198,7 @@ pfqtupdater:SetScript("OnEvent", function()
             local availableVer = formatVersion(remoteversion)
             DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest |cffcccccc[TurtleWoW DB]|r New version available!")
             DEFAULT_CHAT_FRAME:AddMessage("Current: |cff66ccff" .. currentVer .. "|r -> Available: |cff66ccff" .. availableVer .. "|r")
-            DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffhttps://github.com/Bennylavaa/pfQuest-turtle/releases|r")
+            DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffhttps://github.com/rivi-s/pfQuest-turtle/releases|r")
             pfqtupdateavailable = localversion
             alreadyshown = true
         end

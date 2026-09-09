@@ -528,6 +528,9 @@ panel:SetScript("OnUpdate", function()
     local button = buttonPool[i]
     if button and button:IsShown() and button.pendingQualityItem then
       if ApplyItemVisuals(button, button.pendingQualityItem) then
+        -- No longer needed once the client has cached this item's data.
+        itemQueryAttempts[button.pendingQualityItem] = nil
+        itemQueryTimes[button.pendingQualityItem] = nil
         button.pendingQualityItem = nil
       elseif not requested then
         requested = RequestItemData(button.pendingQualityItem)
@@ -540,6 +543,8 @@ local mapWatcher = CreateFrame("Frame")
 mapWatcher:RegisterEvent("WORLD_MAP_UPDATE")
 mapWatcher:SetScript("OnEvent", function()
   unitDropsCache = {}
+  itemQueryAttempts = {}
+  itemQueryTimes = {}
 end)
 
 if WorldMapFrame then
@@ -552,6 +557,8 @@ if WorldMapFrame then
       panel:SetParent(UIParent)
     end
     unitDropsCache = {}
+    itemQueryAttempts = {}
+    itemQueryTimes = {}
   end)
 end
 

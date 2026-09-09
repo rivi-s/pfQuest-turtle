@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.12 — 2026-09-09
+
+- Removed expired auto-quest reward guards and completed item-query entries so they do not accumulate during long sessions.
+- Cleared temporary loot item-query state when the World Map changes or closes.
+- Updated the peer-update notice to link to the current release page.
+
 ## 1.0.11 — 2026-09-08
 
 - Removed a global diagnostic error handler that failed on clients where debug is a function, masking the original error.

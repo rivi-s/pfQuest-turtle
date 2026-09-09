@@ -79,13 +79,27 @@ local rewardLockedUntil = 0
 -- GetQuestReward(). Do not select that stale row again while the server and
 -- quest log catch up.
 local function WasRecentlyRewarded(title)
-    return title and recentlyRewarded[title] and recentlyRewarded[title] > GetTime()
+    if not title then return false end
+    local expiresAt = recentlyRewarded[title]
+    if not expiresAt then return false end
+    if expiresAt > GetTime() then return true end
+
+    -- This is only a two-second stale-dialog guard. Remove expired entries so
+    -- a long session with many different turn-ins does not retain quest titles.
+    recentlyRewarded[title] = nil
+    return false
 end
 
 local function RememberRewardedQuest()
     local title = GetTitleText and GetTitleText()
     if title and title ~= "" then
-        recentlyRewarded[title] = GetTime() + 2
+        local now = GetTime()
+        for rememberedTitle, expiresAt in pairs(recentlyRewarded) do
+            if expiresAt <= now then
+                recentlyRewarded[rememberedTitle] = nil
+            end
+        end
+        recentlyRewarded[title] = now + 2
     end
 end
 
