@@ -231,7 +231,14 @@ local function ScanWorldFrameChildren(frames)
         local frame = frames[i]
 
         if frame and not nameplateFrames[frame] and IsNameplate(frame) then
-            local nameText = ({ frame:GetRegions() })[NAME_REGION_INDEX]
+            -- ClassicAPI exposes a modern nameplate wrapper. Prefer its
+            -- UnitFrame name region, then keep the vanilla region lookup for
+            -- the stock client and older nameplate addons.
+            local unitFrame = frame.UnitFrame
+            local nameText = unitFrame and (unitFrame.name or unitFrame.Name)
+            if not nameText then
+                nameText = ({ frame:GetRegions() })[NAME_REGION_INDEX]
+            end
             if nameText and nameText:GetObjectType() == "FontString" then
                 nameplateFrames[frame] = nameText
 
@@ -314,13 +321,35 @@ local function StartConfigMonitor()
 end
 
 local lastNumChildren = 0
+local classicNameplates = pfQuestCompat.optional and pfQuestCompat.optional.nameplates
+local classicWatcherActive = false
+-- The stock client has no plate events and must retain its scan. ClassicAPI
+-- reports every plate lifecycle directly, so it needs no recurring scan.
 local SCAN_INTERVAL = 0.2
 
+local function ScanClassicNameplates()
+    if not classicNameplates then return end
+    local ok, frames = pcall(C_NamePlate.GetNamePlates)
+    if ok and type(frames) == "table" then
+        ScanWorldFrameChildren(frames)
+    end
+end
+
 StartNameplateWatcher = function()
+    if classicNameplates then
+        if classicWatcherActive then return end
+        classicWatcherActive = true
+        UpdateCachedSettings()
+        ScanClassicNameplates()
+        StartConfigMonitor()
+        return
+    end
+
     if ticker then return end
 
     UpdateCachedSettings()
     lastNumChildren = -1
+    ScanClassicNameplates()
 
     ticker = CreateFrame("Frame")
     ticker.elapsed = 0
@@ -342,6 +371,10 @@ StartNameplateWatcher = function()
 end
 
 StopNameplateWatcher = function()
+    if classicNameplates then
+        classicWatcherActive = false
+    end
+
     if ticker then
         ticker:SetScript("OnUpdate", nil)
         ticker = nil
@@ -370,6 +403,28 @@ local function QueueObjectiveScan()
 end
 
 eventFrame:SetScript("OnEvent", QueueObjectiveScan)
+
+if classicNameplates then
+    local classicNameplateEvents = CreateFrame("Frame")
+    local classicFramesByUnit = {}
+    classicNameplateEvents:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+    classicNameplateEvents:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
+    classicNameplateEvents:SetScript("OnEvent", function()
+        local unit = arg1
+        if event == "NAME_PLATE_UNIT_ADDED" and unit then
+            local ok, frame = pcall(C_NamePlate.GetNamePlateForUnit, unit)
+            if ok and frame then
+                classicFramesByUnit[unit] = frame
+                ScanWorldFrameChildren({ frame })
+                OnNameplateShow(frame)
+            end
+        elseif event == "NAME_PLATE_UNIT_REMOVED" and unit then
+            local frame = classicFramesByUnit[unit]
+            classicFramesByUnit[unit] = nil
+            if frame then OnNameplateHide(frame) end
+        end
+    end)
+end
 
 local function ExtendPfQuestConfig()
     local found = false

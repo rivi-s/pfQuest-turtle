@@ -304,7 +304,7 @@ local function ApplyItemVisuals(button, itemid)
     quality = quality or linkQuality
     itemTexture = linkTexture
   end
-  local icon = GetItemIcon and GetItemIcon(itemid) or itemTexture or FALLBACK_ICON
+  local icon = (pfQuestCompat.GetItemIcon and pfQuestCompat.GetItemIcon(itemid)) or itemTexture or FALLBACK_ICON
   button.icon:SetTexture(icon)
 
   if quality and ITEM_QUALITY_COLORS[quality] then

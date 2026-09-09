@@ -101,6 +101,37 @@ local function GetZoneData(zoneID)
     return pfDB and pfDB["zones"] and pfDB["zones"]["data"] and pfDB["zones"]["data"][zoneID]
 end
 
+-- Exploration overlays belong to the map currently shown by the client. Some
+-- Turtle zones (Alah'Thalas is the important example) are stored as a child
+-- rectangle inside another map, so their quest coordinates need to be lifted
+-- into that parent map before they can be compared with cached overlays.
+local function GetExplorationBounds(zoneID, x, y)
+    local exploredAreas = pfMap.exploredAreas
+    if not exploredAreas then return nil, x, y end
+
+    local explored = exploredAreas[zoneID]
+    if explored then return explored, x, y end
+
+    local seen = {}
+    while zoneID and not seen[zoneID] do
+        seen[zoneID] = true
+        local zoneData = GetZoneData(zoneID)
+        if not zoneData or not zoneData[1] or not zoneData[2] or not zoneData[3] or not zoneData[4] or not zoneData[5] then
+            break
+        end
+
+        -- zoneData is { parent, width, height, centerX, centerY } in percent.
+        x = zoneData[4] - zoneData[2] / 2 + zoneData[2] * (x / 100)
+        y = zoneData[5] - zoneData[3] / 2 + zoneData[3] * (y / 100)
+        zoneID = zoneData[1]
+
+        explored = exploredAreas[zoneID]
+        if explored then return explored, x, y end
+    end
+
+    return nil, x, y
+end
+
 -- Continent assignments (2 = Eastern Kingdoms, 1 = Kalimdor)
 local zoneContinent = {
     [1] = 2, [3] = 2, [4] = 2, [8] = 2, [10] = 2, [11] = 2, [12] = 2, [28] = 2,
@@ -400,11 +431,14 @@ local WORLD_VIEW_LAYOUT = {
 }
 
 local function PlaceContinentPins(continent, layout, pinCount, playerLevel, processedQuests, stats)
+    local currentZoneOnly = tonumber(pfQuest_config["trackingmethod"]) == 5
+    local playerMapID = pfMap.GetPlayerMapID and pfMap:GetPlayerMapID() or pfMap.playerMapID
+    local hideUnexplored = pfQuest_config["hideunexplored"] == "1"
     for addon, addonData in pairs(pfMap.nodes) do
         for zID, zoneNodes in pairs(addonData) do
             stats.zonesSeen = stats.zonesSeen + 1
             local zoneCont = GetZoneContinent(zID)
-            if zoneCont == continent then
+            if zoneCont == continent and (not currentZoneOnly or zID == playerMapID) then
                 stats.zonesMatched = stats.zonesMatched + 1
                 local uiMapID = zoneToUiMapID[zID]
                 if customContinentTransforms[zID] or (uiMapID and mapData[uiMapID]) then
@@ -510,8 +544,16 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                             local zoneY = tonumber(stry)
 
                             if zoneX and zoneY then
+                                -- Exploration overlays are cached only when the player has
+                                -- opened that zone normally. Unknown zones stay visible;
+                                -- hiding them would make a fresh cache look like Current
+                                -- Zone Only until the player browsed every map once.
+                                local explored, explorationX, explorationY = GetExplorationBounds(zID, zoneX, zoneY)
+                                if hideUnexplored and explored and not pfMap.IsExploredPosition(explored, explorationX, explorationY) then
+                                    skipNode = true
+                                end
                                 local contX, contY = ZoneToContinent(zoneX, zoneY, zID, continent)
-                                if contX and contY then
+                                if not skipNode and contX and contY then
                                     stats.nodesConverted = stats.nodesConverted + 1
                                     if contX and contY and contX >= 0 and contX <= 1 and contY >= 0 and contY <= 1 then
                                         pinCount = pinCount + 1
@@ -525,6 +567,7 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                                         local pin = CreateContinentPin(pinCount)
                                         pin.node = node
                                         pin.sourceContinent = continent
+                                        pin.sourceZone = zID
 
                                         pfMap:UpdateNode(pin, node, nil, nil, nil)
 

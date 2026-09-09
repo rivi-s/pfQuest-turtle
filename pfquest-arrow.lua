@@ -95,6 +95,13 @@ local wasDeadLastFrame = false
 pfQuest.route.arrow:SetScript("OnUpdate", function()
     if not this.parent then return end
 
+    -- Respect the setting before the Turtle corpse-arrow branch can update
+    -- the arrow texture or make the frame visible again.
+    if pfQuest_config["arrow"] ~= "1" then
+        this:Hide()
+        return
+    end
+
     local isCurrentlyDead = UnitIsDead("player") or UnitIsGhost("player")
 
     if isCurrentlyDead then

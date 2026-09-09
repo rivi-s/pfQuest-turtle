@@ -6,6 +6,15 @@ local ITEM_INDENT = 20
 
 local configframes = {}
 
+local function SetCheckboxVisual(input, checked)
+    input:SetChecked(checked)
+    local templateCheck = input.GetCheckedTexture and input:GetCheckedTexture()
+    if templateCheck then templateCheck:Hide() end
+    if input.checkmark then
+        if checked then input.checkmark:Show() else input.checkmark:Hide() end
+    end
+end
+
 local function CreateEntryFrame(data)
     local frame = CreateFrame("Frame", nil, pfQuestConfig)
 
@@ -26,24 +35,37 @@ local function CreateEntryFrame(data)
         frame.input:SetPushedTexture("")
         frame.input:SetHighlightTexture("")
         pfUI.api.CreateBackdrop(frame.input, nil, true)
+        frame.input.checkmark = frame.input:CreateTexture(nil, "OVERLAY")
+        frame.input.checkmark:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+        frame.input.checkmark:SetAllPoints(frame.input)
 
         frame.input:SetWidth(16)
         frame.input:SetHeight(16)
         frame.input:SetPoint("RIGHT", -ITEM_INDENT, 0)
 
         frame.input.config = data.config
-        if pfQuest_config[data.config] == "1" then
-            frame.input:SetChecked()
-        end
+        frame.input.lastVisualValue = pfQuest_config[data.config]
+        SetCheckboxVisual(frame.input, pfQuest_config[data.config] == "1")
 
         frame.input:SetScript("OnClick", function()
-            if this:GetChecked() then
-                pfQuest_config[this.config] = "1"
+            -- The native 1.12 template can leave its checked texture visible
+            -- after an uncheck. Store and draw the state ourselves.
+            local checked = pfQuest_config[this.config] ~= "1"
+            pfQuest_config[this.config] = checked and "1" or "0"
+            this.lastVisualValue = pfQuest_config[this.config]
+            SetCheckboxVisual(this, checked)
+            if pfQuestConfig.RequestRefresh then
+                pfQuestConfig:RequestRefresh("full")
             else
-                pfQuest_config[this.config] = "0"
+                pfQuest:ResetAll()
             end
-
-            pfQuest:ResetAll()
+        end)
+        frame.input:SetScript("OnUpdate", function()
+            local value = pfQuest_config[this.config]
+            if this.lastVisualValue ~= value then
+                this.lastVisualValue = value
+                SetCheckboxVisual(this, value == "1")
+            end
         end)
     elseif data.type == "text" then
         frame.input = CreateFrame("EditBox", nil, frame)
@@ -188,7 +210,9 @@ local function UpdateConfigEntries(self)
     for _, data in pairs(pfQuest_defconfig) do
         if data.type and configframes[data.text] then
             if data.type == "checkbox" then
-                configframes[data.text].input:SetChecked((pfQuest_config[data.config] == "1" and true or nil))
+                local input = configframes[data.text].input
+                input.lastVisualValue = pfQuest_config[data.config]
+                SetCheckboxVisual(input, pfQuest_config[data.config] == "1")
             elseif data.type == "text" then
                 local saved = data.globalconfig and pfQuest_global or pfQuest_config
                 configframes[data.text].input:SetText(saved[data.globalconfig or data.config] or data.default)

@@ -1,5 +1,13 @@
 # pfQuest Turtle patch notes
 
+## 1.0.13 — 2026-09-09
+
+- Applied Current Zone Only and unexplored-area filtering to continent pins, including parent-map exploration data for Alah'Thalas and Thalassian Highlands.
+- Fixed stale config checkbox visuals after disabling a setting.
+- Fixed the Turtle corpse-arrow handler continuing after the route arrow was disabled.
+- On ClassicAPI clients, nameplate quest icons now use nameplate lifecycle events instead of recurring frame scans.
+- Loot panels use ClassicAPI's item-ID icon lookup when available, with the existing client fallback preserved.
+
 ## 1.0.12 — 2026-09-09
 
 - Removed expired auto-quest reward guards and completed item-query entries so they do not accumulate during long sessions.
