@@ -1,5 +1,18 @@
 # pfQuest Turtle patch notes
 
+## 1.0.14 — 2026-09-10
+
+- Fixed active quest pins clearing after quest updates until the map filter was changed.
+- Improved city and parent-zone pin placement, city visit filtering, and Blackstone Island continent pins.
+- Made map rendering safer on clean 1.12 clients and reduced work during map changes on enhanced clients.
+- Added an incremental ClassicAPI exploration cache: it warms in the background after login, persists per character, and filters both continents without a full map-open scan.
+- Clean clients continue using the compatible viewed-map exploration cache.
+- Restored the stable 250 ms coalesced continent redraw timing on every client.
+- Made ordinary clicks pass through dense continent pins; hold Ctrl to interact with a pin.
+- Added calibrated continent-map placement for Thalassian Highlands.
+- Updated the mismatch notice to name and link both addons that need updating.
+
+
 ## 1.0.13 — 2026-09-09
 
 - Applied Current Zone Only and unexplored-area filtering to continent pins, including parent-map exploration data for Alah'Thalas and Thalassian Highlands.

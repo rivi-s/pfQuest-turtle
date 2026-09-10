@@ -22,6 +22,18 @@ local localversion = major*10000 + minor*100 + fix
 local remoteversion = tonumber(pfqtupdateavailable) or 0
 local loginchannels = { "RAID", "GUILD", "PARTY" }
 local groupchannels = { "RAID", "PARTY" }
+local requiredBaseVersion = "8.0.21"
+local baseReleaseURL = "https://github.com/rivi-s/pfQuest/releases"
+local turtleReleaseURL = "https://github.com/rivi-s/pfQuest-turtle/releases"
+
+local function ShowUpdateNotice(remotever)
+    local currentVer = formatVersion(localversion)
+    local availableVer = formatVersion(remotever)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest |cffcccccc[TurtleWoW DB]|r New version available!")
+    DEFAULT_CHAT_FRAME:AddMessage("Current: |cff66ccff" .. currentVer .. "|r -> Available: |cff66ccff" .. availableVer .. "|r")
+    DEFAULT_CHAT_FRAME:AddMessage("Update |cff33ffccpfQuest|r base (" .. requiredBaseVersion .. "+): |cff66ccff" .. baseReleaseURL .. "|r")
+    DEFAULT_CHAT_FRAME:AddMessage("Update |cff33ffccpfQuest-turtle|r: |cff66ccff" .. turtleReleaseURL .. "|r")
+end
 
 local function SafeSendAddonMessage(prefix, text, chatType, target)
     pcall(SendAddonMessage, prefix, text, chatType, target)
@@ -144,11 +156,7 @@ pfqtupdater:SetScript("OnEvent", function()
                 if remotever > localversion then
                     pfqtupdateavailable = remotever
                     if not alreadyshown then
-                        local currentVer = formatVersion(localversion)
-                        local availableVer = formatVersion(remotever)
-                        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest |cffcccccc[TurtleWoW DB]|r New version available!")
-                        DEFAULT_CHAT_FRAME:AddMessage("Current: |cff66ccff" .. currentVer .. "|r -> Available: |cff66ccff" .. availableVer .. "|r")
-                        DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffhttps://github.com/rivi-s/pfQuest-turtle/releases|r")
+                        ShowUpdateNotice(remotever)
                         alreadyshown = true
                     end
                 end
@@ -194,11 +202,7 @@ pfqtupdater:SetScript("OnEvent", function()
         UpdatePartyVersionDisplay()
     elseif event == "PLAYER_ENTERING_WORLD" then
         if not alreadyshown and localversion < remoteversion then
-            local currentVer = formatVersion(localversion)
-            local availableVer = formatVersion(remoteversion)
-            DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpf|cffffffffQuest |cffcccccc[TurtleWoW DB]|r New version available!")
-            DEFAULT_CHAT_FRAME:AddMessage("Current: |cff66ccff" .. currentVer .. "|r -> Available: |cff66ccff" .. availableVer .. "|r")
-            DEFAULT_CHAT_FRAME:AddMessage("|cff66ccffhttps://github.com/rivi-s/pfQuest-turtle/releases|r")
+            ShowUpdateNotice(remoteversion)
             pfqtupdateavailable = localversion
             alreadyshown = true
         end
