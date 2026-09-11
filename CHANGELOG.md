@@ -1,5 +1,10 @@
 # pfQuest Turtle patch notes
 
+## 1.0.15 — 2026-09-11
+
+- Updated map tooltip instructions to show Ctrl+Shift-click whenever Ctrl is required for continent-pin interaction.
+- Prevented Party Progress errors during flight paths and other brief quest-log transitions where objective counts are unavailable.
+
 ## 1.0.14 — 2026-09-10
 
 - Fixed active quest pins clearing after quest updates until the map filter was changed.

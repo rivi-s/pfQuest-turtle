@@ -42,7 +42,9 @@ local function RebuildQuestMappings()
         local questTitle, _, _, _, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
         if questTitle and complete ~= 1 then
             activeQuests[questTitle] = {}
-            local numObjectives = GetNumQuestLeaderBoards(qid)
+            -- The client can briefly return nil while the quest log is
+            -- unavailable during transitions such as taking a flight path.
+            local numObjectives = tonumber(GetNumQuestLeaderBoards(qid)) or 0
 
             for i = 1, numObjectives do
                 local text, objType, finished = GetQuestLogLeaderBoard(i, qid)
@@ -302,7 +304,7 @@ local function ShareQuestData(forceFullSync)
                 local questTitle = pfQuestCompat.GetQuestLogTitle(qid)
 
                 if questTitle == questData.quest then
-                    local numObjectives = GetNumQuestLeaderBoards(qid)
+                    local numObjectives = tonumber(GetNumQuestLeaderBoards(qid)) or 0
 
                     for i = 1, numObjectives do
                         local text = GetQuestLogLeaderBoard(i, qid)
@@ -716,9 +718,9 @@ local function HookPfQuestTooltip()
                 local qtitle, _, _, _, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
 
                 if meta["quest"] == qtitle then
-                    local objectives = GetNumQuestLeaderBoards(qid)
+                    local objectives = tonumber(GetNumQuestLeaderBoards(qid)) or 0
 
-                    if objectives then
+                    if objectives > 0 then
                         for i = 1, objectives do
                             local text = GetQuestLogLeaderBoard(i, qid)
 

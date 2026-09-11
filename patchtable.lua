@@ -652,6 +652,14 @@ end
 
 -- Override NodeEnter to show custom tooltips for ITEM_START nodes
 local originalNodeEnter = pfMap.NodeEnter
+local function AddConfiguredClickModifier(text, tooltip)
+  if pfQuest_config["continentClickThrough"] == "1" and tooltip == WorldMapTooltip then
+    text = string.gsub(text, "<Shift>%-Click", "<Ctrl>%-<Shift>%-Click")
+    text = string.gsub(text, "^Click", "<Ctrl>%-Click")
+  end
+  return text
+end
+
 pfMap.NodeEnter = function()
   if not this or not this.node then
     if originalNodeEnter then originalNodeEnter() end
@@ -711,6 +719,7 @@ pfMap.NodeEnter = function()
 
     if pfQuest_config["tooltiphelp"] == "1" then
       local text = pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"]
+      text = AddConfiguredClickModifier(text, tooltip)
       tooltip:AddLine(text, .6, .6, .6)
       tooltip:Show()
     end
@@ -747,6 +756,8 @@ pfMap.NodeEnter = function()
       elseif this.questid and this.texture and this.layer < 5 then
         text = pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"]
       end
+
+      text = AddConfiguredClickModifier(text, tooltip)
 
       tooltip:AddLine(text, .6, .6, .6)
 
