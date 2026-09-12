@@ -657,11 +657,18 @@ local originalNodeEnter = pfMap.NodeEnter
 local function AddConfiguredClickModifier(text, tooltip)
   if pfQuest_config["continentClickThrough"] == "1" and tooltip == WorldMapTooltip then
     text = string.gsub(text, "<Shift>%-Click", "<Ctrl>%-<Shift>%-Click")
+    text = string.gsub(text, "Remove Nodes", "Hide Nodes")
     text = string.gsub(text, "<Alt>%-Click", "<Ctrl>%-<Alt>%-Click")
     text = string.gsub(text, "Alt%-Click", "Ctrl%-Alt%-Click")
     text = string.gsub(text, "^Click", "<Ctrl>%-Click")
   end
   return text
+end
+
+local function AddWorldMapHideHint(tooltip)
+  if pfQuest_config["continentClickThrough"] == "1" and tooltip == WorldMapTooltip then
+    tooltip:AddLine(pfQuest_Loc["<Ctrl>-<Shift>-Click To Hide Nodes"], .6, .6, .6)
+  end
 end
 
 pfMap.NodeEnter = function()
@@ -725,6 +732,7 @@ pfMap.NodeEnter = function()
       local text = pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"]
       text = AddConfiguredClickModifier(text, tooltip)
       tooltip:AddLine(text, .6, .6, .6)
+      AddWorldMapHideHint(tooltip)
       tooltip:Show()
     end
 
@@ -764,6 +772,7 @@ pfMap.NodeEnter = function()
       text = AddConfiguredClickModifier(text, tooltip)
 
       tooltip:AddLine(text, .6, .6, .6)
+      AddWorldMapHideHint(tooltip)
 
       if this.spawnid and pfQuestLoot and pfQuestLoot.HasDrops and pfQuestLoot.HasDrops(this.spawnid) then
         tooltip:AddLine(AddConfiguredClickModifier(pfQuest_Loc["Alt-Click To Show Item Drops"] or "Alt-Click To Show Item Drops", tooltip), .6, .6, .6)
