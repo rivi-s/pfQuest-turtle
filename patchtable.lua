@@ -241,8 +241,10 @@ local RANK_INFO = {
   ["4"] = { text = "Rare",       r = 1, g = 1,    b = 0 },
 }
 
-local function AddRankLine(tooltip, spawnid)
-  if not spawnid then return end
+local function AddRankLine(tooltip, spawnid, spawntype)
+  -- Unit and object IDs share the same number space. Looking up an object ID
+  -- in the unit table can therefore show an unrelated creature rank.
+  if not spawnid or spawntype ~= pfQuest_Loc["Unit"] then return end
 
   local units = pfDB["units"] and pfDB["units"]["data"]
   local unit = units and units[spawnid]
@@ -684,7 +686,7 @@ pfMap.NodeEnter = function()
     this.spawn = this.spawn or UNKNOWN
     tooltip:SetText(this.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..this.spawnid..")|r" or ""), .3, 1, .8)
     tooltip:AddDoubleLine(pfQuest_Loc["Type"] .. ":", (this.spawntype or UNKNOWN), .8,.8,.8, 1,1,1)
-    AddRankLine(tooltip, this.spawnid)
+    AddRankLine(tooltip, this.spawnid, this.spawntype)
     AddSharedSpawnLine(tooltip, this.sharedspawns, this.spawn)
 
     if itemStartMeta.dropsources_levels then
@@ -738,7 +740,7 @@ pfMap.NodeEnter = function()
     tooltip:SetText(this.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..this.spawnid..")|r" or ""), .3, 1, .8)
     tooltip:AddDoubleLine(pfQuest_Loc["Level"] .. ":", (this.level or UNKNOWN), .8,.8,.8, 1,1,1)
     tooltip:AddDoubleLine(pfQuest_Loc["Type"] .. ":", (this.spawntype or UNKNOWN), .8,.8,.8, 1,1,1)
-    AddRankLine(tooltip, this.spawnid)
+    AddRankLine(tooltip, this.spawnid, this.spawntype)
     AddSharedSpawnLine(tooltip, this.sharedspawns, this.spawn)
     tooltip:AddDoubleLine(pfQuest_Loc["Respawn"] .. ":", (this.respawn or UNKNOWN), .8,.8,.8, 1,1,1)
 
@@ -842,7 +844,7 @@ local function RebindUnitResultTooltips()
       local originalOnEnter = button:GetScript("OnEnter")
       button:SetScript("OnEnter", function()
         if originalOnEnter then originalOnEnter() end
-        AddRankLine(GameTooltip, this.id)
+        AddRankLine(GameTooltip, this.id, pfQuest_Loc["Unit"])
         GameTooltip:Show()
       end)
       button.rankTooltipHooked = true
