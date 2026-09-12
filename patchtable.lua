@@ -526,8 +526,27 @@ local function ItemDropQuestFilter(id, plevel, pclass, prace)
   if quest["class"] and not ( bit.band(quest["class"], pclass) == pclass ) then return end
   -- hide non-available quests for your profession
   if quest["skill"] and not pfDatabase:GetPlayerSkill(quest["skill"]) then return end
-  -- hide highlevel quests that are too far above player
-  if quest["min"] and quest["min"] > plevel + 3 then return end
+  local levelRange = pfQuest_config["questpinlevelrange"] or "all"
+  if levelRange ~= "all" and quest["lvl"] then
+    local color = pfQuestCompat.GetDifficultyColor(tonumber(quest["lvl"]))
+    local rank
+    if color.r > .9 and color.g < .15 then
+      rank = 5
+    elseif color.r > .9 and color.g < .9 then
+      rank = 4
+    elseif color.r > .9 then
+      rank = 3
+    elseif color.g > color.r then
+      rank = 2
+    else
+      rank = 1
+    end
+    local maximum = ({ orange = 4, yellow = 3, green = 2, gray = 1 })[levelRange]
+    if maximum and rank > maximum then return end
+  elseif quest["min"] and quest["min"] > plevel + 3 then
+    -- Preserve the prior item-start limit while the new range is All Levels.
+    return
+  end
 
   return true
 end
@@ -729,9 +748,12 @@ pfMap.NodeEnter = function()
     end
 
     if pfQuest_config["tooltiphelp"] == "1" then
-      local text = pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"]
+      local text = string.gsub(pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"], "^Use ", "")
       text = AddConfiguredClickModifier(text, tooltip)
       tooltip:AddLine(text, .6, .6, .6)
+      if tooltip == GameTooltip then
+        tooltip:AddLine(pfQuest_Loc["Hold <Ctrl> To Hide Minimap Nodes"], .6, .6, .6)
+      end
       AddWorldMapHideHint(tooltip)
       tooltip:Show()
     end
@@ -757,21 +779,26 @@ pfMap.NodeEnter = function()
     end
 
     if pfQuest_config["tooltiphelp"] == "1" then
-      local text = pfQuest_Loc["Use <Shift>-Click To Remove Nodes"]
+      local text = string.gsub(pfQuest_Loc["Use <Shift>-Click To Remove Nodes"], "^Use ", "")
+      local shifttext
 
       if this.cluster then
         text = pfQuest_Loc["Hold <Ctrl> To Hide Cluster"]
       elseif tooltip == GameTooltip then
         text = pfQuest_Loc["Hold <Ctrl> To Hide Minimap Nodes"]
+        shifttext = this.questid and this.texture and this.layer < 5
+          and string.gsub(pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"], "^Use ", "")
+          or string.gsub(pfQuest_Loc["Use <Shift>-Click To Remove Nodes"], "^Use ", "")
       elseif not this.texture then
         text = pfQuest_Loc["Click Node To Change Color"]
       elseif this.questid and this.texture and this.layer < 5 then
-        text = pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"]
+        text = string.gsub(pfQuest_Loc["Use <Shift>-Click To Mark Quest As Done"], "^Use ", "")
       end
 
       text = AddConfiguredClickModifier(text, tooltip)
 
       tooltip:AddLine(text, .6, .6, .6)
+      if shifttext then tooltip:AddLine(shifttext, .6, .6, .6) end
       AddWorldMapHideHint(tooltip)
 
       if this.spawnid and pfQuestLoot and pfQuestLoot.HasDrops and pfQuestLoot.HasDrops(this.spawnid) then

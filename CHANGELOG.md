@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.17 — 2026-09-12
+
+- Applied the new quest-difficulty filter to item-start quest pins.
+- Clarified Ctrl-hold and Shift-click map controls.
+- Kept rank labels on unit pins only and improved modifier hints.
+
 ## 1.0.16 — 2026-09-11
 
 - Fixed Rare Loot panels on enhanced world maps and corrected Ctrl modifier hints in map tooltips.
