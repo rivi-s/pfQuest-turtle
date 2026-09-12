@@ -1,5 +1,9 @@
 # pfQuest Turtle patch notes
 
+## 1.0.16 — 2026-09-11
+
+- Fixed Rare Loot panels on enhanced world maps and corrected Ctrl modifier hints in map tooltips.
+
 ## 1.0.15 — 2026-09-11
 
 - Updated map tooltip instructions to show Ctrl+Shift-click whenever Ctrl is required for continent-pin interaction.

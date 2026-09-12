@@ -466,7 +466,11 @@ function pfQuestLoot.ShowPinned(nodeFrame)
 
   pinned = true
   pinnedUnitId = unitid
-  panel.openedFromWorldMap = nodeFrame:GetParent() == WorldMapButton
+  -- Base pfQuest can reparent world-map pins to WorldMapDetailFrame on the
+  -- enhanced zone-map surface.  The pin retains its worldmap flag, while its
+  -- parent is no longer WorldMapButton; use that flag so the loot panel stays
+  -- in the visible world-map hierarchy.
+  panel.openedFromWorldMap = nodeFrame.worldmap or nodeFrame:GetParent() == WorldMapButton
 
   panel:SetWidth(contentWidth + PANEL_MARGIN * 2)
   panel:SetHeight(headerHeight + PANEL_MARGIN + (ok and gridHeight or noItemsHeight))

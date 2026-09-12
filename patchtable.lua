@@ -655,6 +655,8 @@ local originalNodeEnter = pfMap.NodeEnter
 local function AddConfiguredClickModifier(text, tooltip)
   if pfQuest_config["continentClickThrough"] == "1" and tooltip == WorldMapTooltip then
     text = string.gsub(text, "<Shift>%-Click", "<Ctrl>%-<Shift>%-Click")
+    text = string.gsub(text, "<Alt>%-Click", "<Ctrl>%-<Alt>%-Click")
+    text = string.gsub(text, "Alt%-Click", "Ctrl%-Alt%-Click")
     text = string.gsub(text, "^Click", "<Ctrl>%-Click")
   end
   return text
@@ -677,7 +679,7 @@ pfMap.NodeEnter = function()
   end
 
   if hasItemStart and itemStartMeta then
-    local tooltip = this:GetParent() == WorldMapButton and WorldMapTooltip or GameTooltip
+    local tooltip = this.worldmap and WorldMapTooltip or GameTooltip
     tooltip:SetOwner(this, "ANCHOR_LEFT")
     this.spawn = this.spawn or UNKNOWN
     tooltip:SetText(this.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..this.spawnid..")|r" or ""), .3, 1, .8)
@@ -730,7 +732,7 @@ pfMap.NodeEnter = function()
       WorldMapPOIFrame.allowBlobTooltip = false
     end
 
-    local tooltip = this:GetParent() == WorldMapButton and WorldMapTooltip or GameTooltip
+    local tooltip = this.worldmap and WorldMapTooltip or GameTooltip
     tooltip:SetOwner(this, "ANCHOR_LEFT")
     this.spawn = this.spawn or UNKNOWN
     tooltip:SetText(this.spawn..(pfQuest_config.showids == "1" and " |cffcccccc("..this.spawnid..")|r" or ""), .3, 1, .8)
@@ -762,7 +764,7 @@ pfMap.NodeEnter = function()
       tooltip:AddLine(text, .6, .6, .6)
 
       if this.spawnid and pfQuestLoot and pfQuestLoot.HasDrops and pfQuestLoot.HasDrops(this.spawnid) then
-        tooltip:AddLine(pfQuest_Loc["Alt-Click To Show Item Drops"] or "Alt-Click To Show Item Drops", .6, .6, .6)
+        tooltip:AddLine(AddConfiguredClickModifier(pfQuest_Loc["Alt-Click To Show Item Drops"] or "Alt-Click To Show Item Drops", tooltip), .6, .6, .6)
       end
 
       tooltip:Show()
