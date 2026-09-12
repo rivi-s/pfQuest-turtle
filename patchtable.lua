@@ -843,16 +843,28 @@ local function RebindUnitResultTooltips()
       button:SetScript("OnEnter", function()
         if originalOnEnter then originalOnEnter() end
         AddRankLine(GameTooltip, this.id)
+        GameTooltip:Show()
       end)
       button.rankTooltipHooked = true
     end
   end
 end
 
+local rankTooltipRebind = CreateFrame("Frame")
+rankTooltipRebind:Hide()
+rankTooltipRebind:SetScript("OnUpdate", function()
+  this.delay = (this.delay or 0) - arg1
+  if this.delay <= 0 then
+    this:Hide()
+    RebindUnitResultTooltips()
+  end
+end)
+
 if pfBrowser and pfBrowser.input then
   local previous = pfBrowser.input:GetScript("OnTextChanged")
   pfBrowser.input:SetScript("OnTextChanged", function()
     if previous then previous() end
-    RebindUnitResultTooltips()
+    rankTooltipRebind.delay = 0.7
+    rankTooltipRebind:Show()
   end)
 end
