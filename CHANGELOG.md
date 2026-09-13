@@ -1,5 +1,10 @@
 # pfQuest Turtle patch notes
 
+## 1.0.19 — 2026-09-13
+
+- Restored the correct 100% drop chance for Head of Geshgan.
+- Removed unintended per-frame mouse polling from ordinary zone-map pins.
+
 ## 1.0.18 — 2026-09-13
 
 - Made item-start quest pins follow the optional Level Range setting while preserving normal filtering when it is disabled.
