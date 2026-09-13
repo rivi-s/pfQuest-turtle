@@ -54,7 +54,9 @@ local function CreateEntryFrame(data)
             pfQuest_config[this.config] = checked and "1" or "0"
             this.lastVisualValue = pfQuest_config[this.config]
             SetCheckboxVisual(this, checked)
-            if pfQuestConfig.RequestRefresh then
+            if pfQuestConfig.IsReloadSetting and pfQuestConfig:IsReloadSetting(this.config) then
+                pfQuestConfig:UpdateReloadRequired()
+            elseif pfQuestConfig.RequestRefresh then
                 pfQuestConfig:RequestRefresh("full")
             else
                 pfQuest:ResetAll()
