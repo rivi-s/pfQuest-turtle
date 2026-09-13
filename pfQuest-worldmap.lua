@@ -503,12 +503,6 @@ function pfMap:UpdateNode(frame, node, color, obj, distance)
     end
 
     ResizeContinentNode(frame)
-    if frame.worldmap then ConfigureContinentPinInteraction(frame, true) end
-    if frame.worldmap and frame.clickThrough and not IsControlKeyDown() then
-        frame:EnableMouse(false)
-        frame:RegisterForClicks()
-        frame.mouseEnabled = false
-    end
 end
 
 local function GetGrayLevel(charLevel)
