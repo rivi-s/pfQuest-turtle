@@ -17,7 +17,4 @@ do -- quests
   -- The extractor scripts did not catch those, as the objetive is filled via a Gossip on use.
   pfDB["quests"]["data-turtle"][41682]["obj"]["O"] = { 2020173 }
 
-  -- Add "Head of Geshgan" to the loot table of "Geshgan"
-  -- This can be removed by the next database export
-  pfDB["items"]["data-turtle"][41783]["U"] = { [62217] = 1.0 }
 end
