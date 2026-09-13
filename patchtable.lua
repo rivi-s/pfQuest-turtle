@@ -526,8 +526,9 @@ local function ItemDropQuestFilter(id, plevel, pclass, prace)
   if quest["class"] and not ( bit.band(quest["class"], pclass) == pclass ) then return end
   -- hide non-available quests for your profession
   if quest["skill"] and not pfDatabase:GetPlayerSkill(quest["skill"]) then return end
-  local levelRange = pfQuest_config["questpinlevelrange"] or "all"
-  if levelRange ~= "all" and quest["lvl"] then
+  local levelRange = pfQuest_config["questpinlevelrange"] or "off"
+  if levelRange == "all" then levelRange = "off" end
+  if levelRange ~= "off" and quest["lvl"] then
     local color = pfQuestCompat.GetDifficultyColor(tonumber(quest["lvl"]))
     local rank
     if color.r > .9 and color.g < .15 then
@@ -544,7 +545,7 @@ local function ItemDropQuestFilter(id, plevel, pclass, prace)
     local maximum = ({ orange = 4, yellow = 3, green = 2, gray = 1 })[levelRange]
     if maximum and rank > maximum then return end
   elseif quest["min"] and quest["min"] > plevel + 3 then
-    -- Preserve the prior item-start limit while the new range is All Levels.
+    -- Preserve the prior item-start limit while Level Range is disabled.
     return
   end
 
