@@ -1,5 +1,9 @@
 # pfQuest Turtle patch notes
 
+## 1.0.18 — 2026-09-13
+
+- Made item-start quest pins follow the optional Level Range setting while preserving normal filtering when it is disabled.
+
 ## 1.0.17 — 2026-09-12
 
 - Applied the new quest-difficulty filter to item-start quest pins.
