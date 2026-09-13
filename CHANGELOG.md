@@ -1,5 +1,9 @@
 # pfQuest Turtle patch notes
 
+## 1.0.20 — 2026-09-13
+
+- Kept collapsed Quest Log categories closed when accepting quests while nameplate objectives are enabled.
+
 ## 1.0.19 — 2026-09-13
 
 - Restored the correct 100% drop chance for Head of Geshgan.

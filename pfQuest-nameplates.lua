@@ -25,7 +25,11 @@ local function ScanQuestObjectives()
     for qid = 1, GetNumQuestLogEntries() do
         local questTitle, _, _, isHeader, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
         if questTitle and not isHeader and complete ~= 1 then
-            local questIds = pfDatabase:GetQuestIDs(qid)
+            -- Accepting a quest can refresh this scan while the Quest Log is
+            -- visible. Avoid selecting hidden rows during ID resolution so
+            -- collapsed categories remain closed.
+            local preserveSelection = QuestLogFrame and QuestLogFrame:IsShown()
+            local questIds = pfDatabase:GetQuestIDs(qid, preserveSelection)
             local questId = questIds and tonumber(questIds[1])
             if questId then
                 activeQuests[questId] = {}
