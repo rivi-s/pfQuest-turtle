@@ -23,8 +23,8 @@ local remoteversion = tonumber(pfqtupdateavailable) or 0
 local loginchannels = { "RAID", "GUILD", "PARTY" }
 local groupchannels = { "RAID", "PARTY" }
 local requiredBaseVersion = "8.0.21"
-local baseReleaseURL = "https://github.com/rivi-s/pfQuest/releases"
-local turtleReleaseURL = "https://github.com/rivi-s/pfQuest-turtle/releases"
+local baseReleaseURL = "https://github.com/rivi-s/pfQuest"
+local turtleReleaseURL = "https://github.com/rivi-s/pfQuest-turtle"
 
 local function ShowUpdateNotice(remotever)
     local currentVer = formatVersion(localversion)

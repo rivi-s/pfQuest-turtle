@@ -542,10 +542,20 @@ local function ItemDropQuestFilter(id, plevel, pclass, prace)
     else
       rank = 1
     end
-    local maximum = ({ orange = 4, yellow = 3, green = 2, gray = 1 })[levelRange]
-    if maximum and rank > maximum then return end
-  elseif quest["min"] and quest["min"] > plevel + 3 then
-    -- Preserve the prior item-start limit while Level Range is disabled.
+    local threshold = ({ red = 5, orange = 4, yellow = 3, green = 2, gray = 1 })[levelRange]
+    local direction = pfQuest_config["questpinleveldirection"] == "higher" and "higher" or "lower"
+    if threshold and direction == "lower" and rank > threshold then return end
+    if threshold and direction == "higher" and rank < threshold then return end
+  elseif quest["min"] and quest["min"] > plevel + (pfQuest_config["showhighlevel"] == "1" and 3 or 0) then
+    -- Match base pfQuest: the extra three required levels are optional.
+    return
+  end
+
+  -- Item-start quests are added after base SearchQuests and therefore must
+  -- enforce the normal low-level preference themselves. Keep this setting
+  -- authoritative in both optional Level Range directions, matching base
+  -- quest-giver filtering.
+  if quest["lvl"] and quest["lvl"] < plevel - 4 and pfQuest_config["showlowlevel"] == "0" then
     return
   end
 

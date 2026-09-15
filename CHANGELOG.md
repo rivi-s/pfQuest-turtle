@@ -1,5 +1,10 @@
 # pfQuest Turtle patch notes
 
+## 1.0.21 — 2026-09-15
+
+- Updated the base and Turtle version notices to their maintained repository download pages.
+- Matched Turtle item-start quest filtering to the base Level Range direction, Red threshold, and high- and low-level settings.
+
 ## 1.0.20 — 2026-09-13
 
 - Kept collapsed Quest Log categories closed when accepting quests while nameplate objectives are enabled.
