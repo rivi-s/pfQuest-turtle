@@ -72,36 +72,7 @@ questLogFrame:RegisterEvent('QUEST_PROGRESS')
 -- Use a short debounce instead of persistent state: some Turtle dialogs do not
 -- emit a follow-up event, which must never leave automation locked forever.
 local interactionLockedUntil = 0
-local recentlyRewarded = {}
-local rewardLockedUntil = 0
-
--- Turtle can keep a rewarded quest in the greeting/gossip list briefly after
--- GetQuestReward(). Do not select that stale row again while the server and
--- quest log catch up.
-local function WasRecentlyRewarded(title)
-    if not title then return false end
-    local expiresAt = recentlyRewarded[title]
-    if not expiresAt then return false end
-    if expiresAt > GetTime() then return true end
-
-    -- This is only a two-second stale-dialog guard. Remove expired entries so
-    -- a long session with many different turn-ins does not retain quest titles.
-    recentlyRewarded[title] = nil
-    return false
-end
-
-local function RememberRewardedQuest()
-    local title = GetTitleText and GetTitleText()
-    if title and title ~= "" then
-        local now = GetTime()
-        for rememberedTitle, expiresAt in pairs(recentlyRewarded) do
-            if expiresAt <= now then
-                recentlyRewarded[rememberedTitle] = nil
-            end
-        end
-        recentlyRewarded[title] = now + 2
-    end
-end
+local rewardedCurrentDialog = false
 
 local function BeginInteraction(kind)
     local now = GetTime()
@@ -137,6 +108,14 @@ postRewardRefresh:SetScript("OnUpdate", function()
         pfMap.queue_update = GetTime()
     end
 
+    -- One delayed pass is enough to remove the rewarded quest from the
+    -- minimap. Without it, a marker could survive until an unrelated hover
+    -- or map refresh when the World Map was closed during turn-in.
+    if not (WorldMapFrame and WorldMapFrame:IsShown()) then
+        this:Hide()
+        return
+    end
+
     -- Scripted dialogue chains can advance their next quest state after the
     -- first reward refresh. Run a second short pass before stopping so an old
     -- yellow turn-in pin cannot remain on the next unfinished quest.
@@ -167,14 +146,9 @@ postRewardRefresh:SetScript("OnUpdate", function()
 end)
 
 local function SchedulePostRewardRefresh()
-    -- This cleanup exists only to redraw a visible World Map after an
-    -- automated reward. Let the normal quest-log scan handle gameplay with
-    -- the map closed, avoiding a pair of expensive immediate refreshes.
-    if WorldMapFrame and WorldMapFrame:IsShown() then
-        postRewardRefresh.elapsed = 0
-        postRewardRefresh.passes = 0
-        postRewardRefresh:Show()
-    end
+    postRewardRefresh.elapsed = 0
+    postRewardRefresh.passes = 0
+    postRewardRefresh:Show()
 end
 
 local function CompleteQuestWithRewards()
@@ -224,10 +198,28 @@ end
 -- Turtle marks them complete. They have no objective rows, unlike incomplete
 -- kill or collection quests, so they are safe to select at a quest greeting.
 local function IsGreetingQuestReady(title)
+    local npcName = UnitName("npc")
+    if npcName then npcName = string.lower(npcName) end
+
     for qlogid = 1, 40 do
         local qtitle, _, _, header, _, complete = pfQuestCompat.GetQuestLogTitle(qlogid)
         if qtitle and not header and qtitle == title then
-            return complete or (GetNumQuestLeaderBoards(qlogid) or 0) == 0
+            local objectiveCount = GetNumQuestLeaderBoards(qlogid) or 0
+            if complete or objectiveCount == 0 then return true end
+
+            -- Some Turtle talk objectives remain incomplete until their NPC
+            -- dialog is opened. When the live objective target is the NPC we
+            -- are currently speaking to, selecting this active quest is the
+            -- action that grants credit and enables completion.
+            if npcName then
+                for objectiveIndex = 1, objectiveCount do
+                    local text, _, done = pfQuestCompat.GetQuestLogLeaderBoard(objectiveIndex, qlogid)
+                    local _, _, target = string.find(text or "", "^(.-):")
+                    local normalizedTarget = target and string.lower(target)
+                    if not done and normalizedTarget
+                      and string.find(normalizedTarget, npcName, 1, true) then return true end
+                end
+            end
         end
     end
     return false
@@ -252,20 +244,26 @@ local function IsQuestReadyToComplete()
         end
     end
 
+    -- Talk/report quests can reach QUEST_PROGRESS before Turtle marks their
+    -- quest-log row complete. Apply the same zero-objective check used when
+    -- selecting a completed greeting row so the enabled Continue button is
+    -- advanced without treating an unfinished kill or collection quest as
+    -- ready.
     local title = GetTitleText and GetTitleText()
-    return title and IsGreetingQuestComplete(title) or false
+    return title and IsGreetingQuestReady(title) or false
 end
 
--- Some Turtle chains use QUEST_PROGRESS for a scripted dialogue step. Advance
--- only an enabled Continue button; do not force ordinary incomplete quests.
+-- Some Turtle chains use QUEST_PROGRESS for a scripted dialogue or item
+-- handoff without marking the quest-log row complete. The client keeps this
+-- button disabled for an ordinary unfinished quest, so its enabled state is
+-- the authoritative signal; its caption varies between custom quest scripts.
 local function IsQuestDialogueContinue()
     local button = QuestFrameCompleteButton
     if not button or not button:IsShown() or not button:IsEnabled() then
         return false
     end
 
-    local text = button:GetText()
-    return text == "Continue" or (CONTINUE and text == CONTINUE)
+    return true
 end
 
 local function SelectFirstAvailableQuest()
@@ -290,12 +288,25 @@ local function SelectFirstGossipAvailableQuest()
     end
 
     local available = { GetGossipAvailableQuests() }
-    if type(available[1]) ~= "string" then
-        return false
+    local questIndex = 0
+    local i = 1
+    while i <= table.getn(available) do
+        if type(available[i]) == "string" then
+            questIndex = questIndex + 1
+            -- Turtle's custom gossip list can omit the usual boolean
+            -- low-level flag, yielding title, level, title, level. Only a
+            -- real boolean may be used to skip a low-level quest.
+            local isLowLevel = type(available[i + 2]) == "boolean" and available[i + 2] or false
+            if not SkipLowLevelQuest(isLowLevel) then
+                SelectGossipAvailableQuest(questIndex)
+                return true
+            end
+            i = i + (type(available[i + 2]) == "boolean" and 3 or 2)
+        else
+            i = i + 1
+        end
     end
-
-    SelectGossipAvailableQuest(1)
-    return true
+    return false
 end
 
 local function SelectFirstCompletedActiveQuest()
@@ -306,7 +317,7 @@ local function SelectFirstCompletedActiveQuest()
     local numActiveQuests = GetNumActiveQuests()
     for i = 1, numActiveQuests do
         local title = GetActiveTitle(i)
-        if title and not WasRecentlyRewarded(title) and IsGreetingQuestReady(title) then
+        if title and IsGreetingQuestReady(title) then
             SelectActiveQuest(i)
             return true
         end
@@ -324,26 +335,48 @@ local function SelectFirstCompletedGossipActiveQuest()
 
     local active = { GetGossipActiveQuests() }
     local questIndex = 0
-    for i = 1, table.getn(active) do
+    local i = 1
+    while i <= table.getn(active) do
         if type(active[i]) == "string" then
             questIndex = questIndex + 1
-            if not WasRecentlyRewarded(active[i]) and IsGreetingQuestReady(active[i]) then
+            -- The standard Turtle tuple is title, level, low-level, complete.
+            -- Its explicit completion flag is more reliable than matching a
+            -- repeated title back to one quest-log row. Retain the log check
+            -- for client variants that omit the flag.
+            local hasCompleteFlag = type(active[i + 3]) == "boolean"
+            local isComplete = hasCompleteFlag and active[i + 3] or false
+            if isComplete or IsGreetingQuestReady(active[i]) then
                 SelectGossipActiveQuest(questIndex)
                 return true
             end
+            if hasCompleteFlag then
+                i = i + 4
+            elseif type(active[i + 2]) == "boolean" then
+                i = i + 3
+            else
+                i = i + 2
+            end
+        else
+            i = i + 1
         end
     end
 
     return false
 end
 
-local function SelectAutoQuestGreeting()
-    -- Always prefer a completed turn-in over an available quest at the same NPC.
-    return SelectFirstCompletedActiveQuest() or SelectFirstAvailableQuest()
+local function SelectAutoQuestDialog()
+    -- Turtle can expose either list family for the same NPC and can populate
+    -- them on different frames. Always inspect both, prefer ready turn-ins,
+    -- and accept an available quest only when no ready turn-in is visible.
+    return SelectFirstCompletedActiveQuest()
+        or SelectFirstCompletedGossipActiveQuest()
+        or SelectFirstAvailableQuest()
+        or SelectFirstGossipAvailableQuest()
 end
 
--- Turtle populates the greeting quest list shortly after QUEST_GREETING.
--- Retry briefly so automation does not inspect either list before it exists.
+-- Turtle may populate normal or gossip quest lists shortly after the initial
+-- event. Retry both list families briefly instead of depending on which event
+-- happened to arrive after the server data.
 local questGreetingRetry = CreateFrame("Frame")
 questGreetingRetry:Hide()
 questGreetingRetry.elapsed = 0
@@ -353,10 +386,15 @@ questGreetingRetry:SetScript("OnUpdate", function()
         return
     end
 
-    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectAutoQuestGreeting()) or this.elapsed >= 1 then
+    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectAutoQuestDialog()) or this.elapsed >= 1 then
         this:Hide()
     end
 end)
+
+local function RetryAutoQuestDialog()
+    questGreetingRetry.elapsed = 0
+    questGreetingRetry:Show()
+end
 
 questLogFrame:SetScript("OnEvent", function()
     if pfQuest_config["autoQuests"] == "0" or IsShiftKeyDown() then
@@ -365,6 +403,11 @@ questLogFrame:SetScript("OnEvent", function()
 
     if event == "QUEST_PROGRESS" then
         EndInteraction()
+        -- A progress dialog identifies a new turn-in attempt. Reset the reward
+        -- guard here so consecutive quests with the same title can both be
+        -- completed while duplicate QUEST_COMPLETE events for one dialog are
+        -- still ignored.
+        rewardedCurrentDialog = false
         if IsQuestReadyToComplete() or IsQuestDialogueContinue() then
             CompleteQuest()
         end
@@ -372,33 +415,33 @@ questLogFrame:SetScript("OnEvent", function()
 
     if event == "QUEST_COMPLETE" then
         EndInteraction()
-        if GetTime() < rewardLockedUntil then
+        if rewardedCurrentDialog then
             return
         end
         if GetNumQuestChoices() == 0 then
             -- Some Turtle clients emit QUEST_COMPLETE more than once after a
-            -- reward is claimed. Guard the reward API itself, not only the
-            -- greeting list, so a stale completion cannot loop.
-            rewardLockedUntil = GetTime() + 2
-            RememberRewardedQuest()
+            -- reward is claimed. Guard this dialog rather than its title: two
+            -- different quests at one NPC may legitimately share that title.
+            rewardedCurrentDialog = true
             GetQuestReward()
             SchedulePostRewardRefresh()
         elseif QuestFrameRewardPanel.itemChoice and QuestFrameRewardPanel.itemChoice > 0 then
+            rewardedCurrentDialog = true
             GetQuestReward(QuestFrameRewardPanel.itemChoice)
         end
     end
 
     if event == "QUEST_GREETING" then
         if not BeginInteraction("greeting") then
+            RetryAutoQuestDialog()
             return
         end
 
         -- Selecting a turn-in opens the completion dialog on the next client
         -- update. QUEST_COMPLETE below then safely claims a no-choice reward.
-        if not SelectAutoQuestGreeting() then
+        if not SelectAutoQuestDialog() then
             EndInteraction()
-            questGreetingRetry.elapsed = 0
-            questGreetingRetry:Show()
+            RetryAutoQuestDialog()
         end
     end
 
@@ -409,38 +452,15 @@ questLogFrame:SetScript("OnEvent", function()
         end
     end
 
-    if event == "GOSSIP_SHOW" and GetGossipAvailableQuests then
+    if event == "GOSSIP_SHOW" then
         if not BeginInteraction("gossip") then
+            RetryAutoQuestDialog()
             return
         end
 
-        -- Match normal greetings: completed turn-ins always win over an
-        -- available quest, and unfinished active quests are left alone.
-        if SelectFirstCompletedGossipActiveQuest() then
-            return
+        if not SelectAutoQuestDialog() then
+            EndInteraction()
+            RetryAutoQuestDialog()
         end
-
-        local available = { GetGossipAvailableQuests() }
-        local questIndex = 0
-        local i = 1
-        while i <= table.getn(available) do
-            if type(available[i]) == "string" then
-                questIndex = questIndex + 1
-                -- Turtle's custom gossip list can omit the usual boolean
-                -- low-level flag, yielding title, level, title, level. Only
-                -- a real boolean may be used to skip a low-level quest.
-                local isLowLevel = type(available[i + 2]) == "boolean" and available[i + 2] or false
-                if not SkipLowLevelQuest(isLowLevel) then
-                    SelectGossipAvailableQuest(questIndex)
-                    return
-                end
-                i = i + (type(available[i + 2]) == "boolean" and 3 or 2)
-            else
-                i = i + 1
-            end
-        end
-
-        -- No gossip row was selected, so a new interaction should be allowed.
-        EndInteraction()
     end
 end)
