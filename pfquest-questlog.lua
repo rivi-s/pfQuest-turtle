@@ -386,7 +386,10 @@ questGreetingRetry:SetScript("OnUpdate", function()
         return
     end
 
-    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectAutoQuestDialog()) or this.elapsed >= 1 then
+    -- A few server-scripted greetings populate their active list after the
+    -- normal one-second window. Keep retrying briefly; automation remains
+    -- opt-in and stops as soon as a row is selected.
+    if (pfQuest_config["autoQuests"] == "1" and not IsShiftKeyDown() and SelectAutoQuestDialog()) or this.elapsed >= 2.5 then
         this:Hide()
     end
 end)
