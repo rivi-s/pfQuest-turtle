@@ -345,6 +345,29 @@ StartNameplateWatcher = function()
         classicWatcherActive = true
         UpdateCachedSettings()
         ScanClassicNameplates()
+
+        -- ClassicAPI events provide immediate updates, but some client and
+        -- nameplate-addon combinations do not emit an added event for every
+        -- simultaneously visible plate. Reconcile both discovery surfaces at
+        -- the same modest rate used by the legacy scanner so every matching
+        -- mob receives its own quest icon.
+        lastNumChildren = -1
+        ticker = CreateFrame("Frame")
+        ticker.elapsed = 0
+        ticker:SetScript("OnUpdate", function()
+            this.elapsed = this.elapsed + arg1
+            if this.elapsed >= SCAN_INTERVAL then
+                ScanClassicNameplates()
+                local numChildren = WorldFrame:GetNumChildren()
+                if numChildren ~= lastNumChildren then
+                    lastNumChildren = numChildren
+                    ScanWorldFrameChildren({ WorldFrame:GetChildren() })
+                end
+                UpdateAllNameplates()
+                this.elapsed = 0
+            end
+        end)
+
         StartConfigMonitor()
         return
     end
