@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.22 — 2026-09-17
+
+- Restored quest icons across every simultaneously visible nameplate when ClassicAPI omits some lifecycle events.
+- Kept nameplate quest icons working when pfUI or BlizzNameplatesPlus replaces or recycles the displayed name region.
+- Hardened automatic quest-dialog handling and extended delayed greeting selection for slow-loading NPC dialogs.
+
 ## 1.0.21 — 2026-09-15
 
 - Updated the base and Turtle version notices to their maintained repository download pages.

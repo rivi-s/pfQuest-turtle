@@ -138,6 +138,34 @@ local function IsNameplate(frame)
     return false
 end
 
+local function GetNameplateNameText(frame)
+    -- pfUI disables the original Blizzard regions and renders the live unit
+    -- name on its own overlay. Prefer that field whenever it exists; the
+    -- original third region can be blank or stale on recycled plates.
+    local styledPlate = frame and frame.nameplate
+    local nameText = styledPlate and styledPlate.name
+
+    -- Retain compatibility with modern-style wrappers and the stock client.
+    if not nameText then
+        local unitFrame = frame and frame.UnitFrame
+        nameText = unitFrame and (unitFrame.name or unitFrame.Name)
+    end
+    -- BlizzNameplatesPlus keeps the original Blizzard name FontString on the
+    -- plate itself. ClassicAPI can later expose that plate with no native
+    -- regions, so the saved shortcut becomes the only stable name source.
+    if not nameText and frame then
+        nameText = frame.name
+    end
+    if not nameText and frame then
+        nameText = ({ frame:GetRegions() })[NAME_REGION_INDEX]
+    end
+
+    if nameText and nameText.GetObjectType
+      and nameText:GetObjectType() == "FontString" then
+        return nameText
+    end
+end
+
 local cachedScale, cachedX, cachedY = 1, -20, -8
 
 local function UpdateCachedSettings()
@@ -202,8 +230,11 @@ local function OnNameplateShow(nameplateFrame)
         return
     end
 
-    local nameText = nameplateFrames[nameplateFrame]
+    -- Refresh the name-region reference because styled nameplates can create
+    -- or replace their overlay after the underlying Blizzard frame is found.
+    local nameText = GetNameplateNameText(nameplateFrame)
     if not nameText then return end
+    nameplateFrames[nameplateFrame] = nameText
 
     local unitName = nameText:GetText()
     if not unitName then return end
@@ -235,15 +266,10 @@ local function ScanWorldFrameChildren(frames)
         local frame = frames[i]
 
         if frame and not nameplateFrames[frame] and IsNameplate(frame) then
-            -- ClassicAPI exposes a modern nameplate wrapper. Prefer its
-            -- UnitFrame name region, then keep the vanilla region lookup for
-            -- the stock client and older nameplate addons.
-            local unitFrame = frame.UnitFrame
-            local nameText = unitFrame and (unitFrame.name or unitFrame.Name)
-            if not nameText then
-                nameText = ({ frame:GetRegions() })[NAME_REGION_INDEX]
-            end
-            if nameText and nameText:GetObjectType() == "FontString" then
+            -- Resolve the active name region for pfUI, modern-style wrappers,
+            -- the stock client, and older nameplate addons.
+            local nameText = GetNameplateNameText(frame)
+            if nameText then
                 nameplateFrames[frame] = nameText
 
                 if frame:IsShown() then
