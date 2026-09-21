@@ -14,32 +14,73 @@ local function ScanQuestObjectives()
     questObjectives = {}
 
     if not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"] then
-        return
+        return 0
     end
 
     if not pfDB["quests"]["enUS"] or not pfDatabase then
-        return
+        return 0
     end
 
     local activeQuests = {}
+    local unresolvedRows = 0
     for qid = 1, GetNumQuestLogEntries() do
         local questTitle, _, _, isHeader, _, complete = pfQuestCompat.GetQuestLogTitle(qid)
         if questTitle and not isHeader and complete ~= 1 then
             -- Accepting a quest can refresh this scan while the Quest Log is
             -- visible. Avoid selecting hidden rows during ID resolution so
             -- collapsed categories remain closed.
-            local preserveSelection = QuestLogFrame and QuestLogFrame:IsShown()
-            local questIds = pfDatabase:GetQuestIDs(qid, preserveSelection)
-            local questId = questIds and tonumber(questIds[1])
+            local questId
+            -- pfQuest has already resolved active rows while maintaining its
+            -- quest log. Reuse that canonical ID instead of restarting an HDB
+            -- title lookup here; the asynchronous index can still be warming
+            -- up during login and would otherwise leave every icon unindexed.
+            for activeId, state in pairs(pfQuest.questlog or {}) do
+                if type(activeId) == "number" and state and state.qlogid == qid
+                  and state.title == questTitle then
+                    questId = activeId
+                    break
+                end
+            end
+            if not questId then
+                local preserveSelection = QuestLogFrame and QuestLogFrame:IsShown()
+                local questIds = pfDatabase:GetQuestIDs(qid, preserveSelection)
+                questId = questIds and tonumber(questIds[1])
+            end
             if questId then
                 activeQuests[questId] = {}
+            else
+                unresolvedRows = unresolvedRows + 1
             end
             local numObjectives = GetNumQuestLeaderBoards(qid)
 
             for i = 1, numObjectives do
                 local text, objType, finished = GetQuestLogLeaderBoard(i, qid)
                 if text and finished ~= true and finished ~= 1 then
-                    local _, _, objName, current, total = string.find(text, "(.*):%s*(%d+)%s*/%s*(%d+)")
+                    -- The raw leaderboard text follows the client's localized
+                    -- QUEST_MONSTERS_KILLED/QUEST_OBJECTS_FOUND templates, whose
+                    -- numbered placeholders (%1/%2/%3) some clients physically
+                    -- reorder. A plain "name: current/total" regex silently
+                    -- fails whenever a quest's format is reordered, so that
+                    -- quest's monster never gets a nameplate icon. Use cmatch,
+                    -- which resolves captures by their logical %N$ position
+                    -- instead of physical order (same fix already applied to
+                    -- map.lua/database.lua for the equivalent tooltip bug).
+                    local objName, current, total
+                    local format = objType == "monster" and QUEST_MONSTERS_KILLED
+                      or (objType == "item" or objType == "object") and QUEST_OBJECTS_FOUND
+                    if format and pfUI and pfUI.api and pfUI.api.cmatch then
+                        local ok, name, count, required = pcall(pfUI.api.cmatch, text, format)
+                        if ok then objName, current, total = name, count, required end
+                    end
+                    -- Turtle and UI replacements can expose nonstandard
+                    -- objective types or omit legacy string helpers. Retain
+                    -- the proven vanilla layout as a safe fallback so one
+                    -- parser mismatch cannot empty every nameplate icon.
+                    if not objName then
+                        _, _, objName, current, total = string.find(
+                          text, "(.*):%s*(%d+)%s*/%s*(%d+)"
+                        )
+                    end
                     if objName and questId then
                         objName = string.gsub(objName, "^%s*(.-)%s*$", "%1")
                         table.insert(activeQuests[questId], {
@@ -108,6 +149,7 @@ local function ScanQuestObjectives()
                     end
                 end
 	            end
+    return unresolvedRows
 end
 end
 
@@ -240,6 +282,22 @@ local function OnNameplateShow(nameplateFrame)
     if not unitName then return end
 
     local icon = questObjectives[unitName]
+
+    -- A styled nameplate overlay (pfUI, etc.) can abbreviate a long creature
+    -- name to fit the plate width (e.g. "Nightbane Shadow Weaver" becomes
+    -- "N. Shadow Weaver"), which no longer matches questObjectives' full
+    -- database name. Fall back to the raw Blizzard name region when the
+    -- preferred source found no match; it can be blank/stale on recycled
+    -- plates (why it isn't preferred outright above) but still carries the
+    -- full name on plates where it hasn't been cleared.
+    if not icon then
+        local rawRegion = ({ nameplateFrame:GetRegions() })[NAME_REGION_INDEX]
+        local rawText = rawRegion and rawRegion.GetObjectType and rawRegion:GetObjectType() == "FontString"
+          and rawRegion:GetText()
+        if rawText and rawText ~= unitName then
+            icon = questObjectives[rawText]
+        end
+    end
 
     if icon then
         local frame = GetIconFrame(nameplateFrame)
@@ -445,12 +503,22 @@ local objectiveScan = CreateFrame("Frame")
 local function QueueObjectiveScan()
     if objectiveScan:GetScript("OnUpdate") then return end
     objectiveScan.elapsed = 0
+    objectiveScan.attempts = 0
     objectiveScan:SetScript("OnUpdate", function()
         this.elapsed = this.elapsed + arg1
         if this.elapsed >= 0.5 then
-            this:SetScript("OnUpdate", nil)
-            ScanQuestObjectives()
+            this.attempts = this.attempts + 1
+            local unresolvedRows = ScanQuestObjectives()
             UpdateAllNameplates()
+            -- PLAYER_ENTERING_WORLD can arrive before pfQuest has attached
+            -- canonical IDs to its quest-log rows. Retry only while real
+            -- active rows remain unresolved; this mirrors the successful
+            -- manual /pfqnp scan without polling after initialization.
+            if unresolvedRows and unresolvedRows > 0 and this.attempts < 20 then
+                this.elapsed = 0
+            else
+                this:SetScript("OnUpdate", nil)
+            end
         end
     end)
 end
@@ -605,6 +673,43 @@ SlashCmdList["PFQUESTNP"] = function(msg)
 
             DEFAULT_CHAT_FRAME:AddMessage("  IsNameplate() result: " .. tostring(IsNameplate(frame)))
             DEFAULT_CHAT_FRAME:AddMessage("  Already registered by us: " .. tostring(nameplateFrames[frame] ~= nil))
+
+            -- GetNameplateNameText() has 4 fallback sources and only the last
+            -- one is region 3 above. Report which source it actually resolved
+            -- and whether that resolved text has a tracked quest objective, to
+            -- catch a mismatch between a higher-priority (possibly stale or
+            -- differently-formatted) source and the raw region-3 text.
+            local source = "none"
+            if frame.nameplate and frame.nameplate.name then
+                source = "frame.nameplate.name (styled overlay)"
+            elseif frame.UnitFrame and (frame.UnitFrame.name or frame.UnitFrame.Name) then
+                source = "frame.UnitFrame.name/Name"
+            elseif frame.name then
+                source = "frame.name (BlizzNameplatesPlus shortcut)"
+            elseif r3 then
+                source = "region 3 (fallback)"
+            end
+            local resolvedText = GetNameplateNameText(frame)
+            local resolvedString = resolvedText and resolvedText:GetText()
+            DEFAULT_CHAT_FRAME:AddMessage("  GetNameplateNameText() source: " .. source)
+            DEFAULT_CHAT_FRAME:AddMessage("  GetNameplateNameText() text: '" .. tostring(resolvedString) .. "'")
+            if resolvedString then
+                local icon = questObjectives[resolvedString]
+                DEFAULT_CHAT_FRAME:AddMessage("  questObjectives[resolved text]: " .. tostring(icon))
+            end
+
+            -- Mirror OnNameplateShow's raw-region fallback exactly, so this
+            -- reports what the live fix path actually resolves to, not just
+            -- the preferred source above.
+            if r3 and r3.GetObjectType and r3:GetObjectType() == "FontString" then
+                local rawText = r3:GetText()
+                DEFAULT_CHAT_FRAME:AddMessage("  Raw region 3 questObjectives lookup: "
+                    .. tostring(rawText and questObjectives[rawText]))
+            end
+            DEFAULT_CHAT_FRAME:AddMessage("  Has an active icon frame right now: " .. tostring(iconFrames[frame] ~= nil))
+            if iconFrames[frame] then
+                DEFAULT_CHAT_FRAME:AddMessage("  Icon frame shown: " .. tostring(iconFrames[frame]:IsShown()))
+            end
         end
     elseif msg == "on" then
         if not pfQuest_config then pfQuest_config = {} end
