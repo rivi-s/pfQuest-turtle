@@ -12361,5 +12361,6 @@ pfDB["objects"]["enUS-turtle"] = {
   [2020419] = "Horde Flag",
   [2020420] = "Elunaris Relic",
   [2020421] = "Thorn Gorge Flag",
+  [2020812] = "Tidal Altar",
   [3000693] = "Anvil (Invisible)",
 }

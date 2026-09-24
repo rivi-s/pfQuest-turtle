@@ -1,5 +1,12 @@
 # pfQuest Turtle patch notes
 
+## 1.0.24 — 2026-09-24
+
+- Added calibrated Eastern Kingdoms projections for Balor, Grim Reaches, Northwind, and Gilneas.
+- Fixed Current Zone Only leaking quests from older zones into Grim Reaches and Northwind, with preventive coverage for Gilneas and Tel'Abim.
+- Removed duplicate Alah'Thalas and Thalassian Highlands continent quest pins.
+- Added verified quest objectives, starters, enders, item sources, object locations, NPC locations, and drop rates for newer Turtle content in Northwind, Balor, and Moonwhisper Coast.
+
 ## 1.0.22 — 2026-09-17
 
 - Restored quest icons across every simultaneously visible nameplate when ClassicAPI omits some lifecycle events.

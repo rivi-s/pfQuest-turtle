@@ -105,7 +105,77 @@ local customContinentTransforms = {
     -- Calibrated from the same player position on its zone and Eastern
     -- Kingdoms maps; this is safe on both clean and enhanced clients.
     [5225] = { continent = 2, left = 0.489112, top = 0.107562, width = 0.076099, height = 0.086962 },
+    -- Gilneas: south of Silverpine Forest on the Eastern Kingdoms map.
+    -- Calibrated at Gilneas 45.87 / 22.69 against Eastern Kingdoms
+    -- 40.99 / 35.71, using its client dimensions (3666 x 2442).
+    [5179] = { continent = 2, left = 0.368379, top = 0.333721, width = 0.090519, height = 0.103038 },
+    -- Balor: west of Stormwind on the Eastern Kingdoms map. Calibrated at
+    -- Balor 44.81 / 35.62 against Eastern Kingdoms 35.97 / 67.25; its scale
+    -- comes from the client WorldMapArea dimensions (3098 x 2068).
+    [5561] = { continent = 2, left = 0.325423, top = 0.641419, width = 0.076494, height = 0.087257 },
+    -- Northwind: west of the Wetlands on the Eastern Kingdoms map. Calibrated
+    -- at Northwind 63.36 / 70.38 against Eastern Kingdoms 44.87 / 65.25,
+    -- using its client dimensions (3241 x 2157).
+    [5581] = { continent = 2, left = 0.397996, top = 0.588445, width = 0.080025, height = 0.091013 },
+    -- Grim Reaches: east of the Wetlands on the Eastern Kingdoms map.
+    -- Calibrated at Grim Reaches 51.52 / 57.02 against Eastern Kingdoms
+    -- 59.23 / 52.90, using its client dimensions (5387 x 3584).
+    [5602] = { continent = 2, left = 0.523772, top = 0.442772, width = 0.133012, height = 0.151224 },
 }
+pfMap.customContinentTransforms = customContinentTransforms
+
+-- Standalone Turtle outdoor maps can reuse quest entities that also carry
+-- coordinates in an older/base zone. Those duplicate records are useful for
+-- compatibility, but Current Zone Only must not render them as local pins.
+-- Most custom outdoor maps are already identified by their continent
+-- transform; these additional maps use client WorldMapArea data and therefore
+-- do not need a custom projection.
+local boundaryAliasMaps = {}
+for zoneID in pairs(customContinentTransforms) do boundaryAliasMaps[zoneID] = true end
+boundaryAliasMaps[5121] = true -- Tel'Abim
+
+function pfMap:BuildBoundaryAliasKeys(map)
+    local aliases = {}
+    if not map or not boundaryAliasMaps[map] then return aliases end
+    local candidates = {}
+    local currentNodes = self.nodes.PFQUEST and self.nodes.PFQUEST[map]
+    if not currentNodes then return aliases end
+    for _, node in pairs(currentNodes) do
+        for _, data in pairs(node) do
+            if data.questid and data.spawnid and data.QTYPE then
+                local key = tostring(data.questid) .. ":" .. tostring(data.QTYPE) .. ":" .. tostring(data.spawnid)
+                candidates[key] = true
+            end
+        end
+    end
+    for _, addonData in pairs(self.nodes) do
+        for otherZone, zoneNodes in pairs(addonData) do
+            if otherZone ~= map then
+                for _, node in pairs(zoneNodes) do
+                    for _, data in pairs(node) do
+                        if data.questid and data.spawnid and data.QTYPE then
+                            local key = tostring(data.questid) .. ":" .. tostring(data.QTYPE) .. ":" .. tostring(data.spawnid)
+                            if candidates[key] then aliases[key] = true end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return aliases
+end
+
+function pfMap:IsBoundaryAliasNode(node, aliases)
+    local matched = false
+    for _, data in pairs(node or {}) do
+        if data.questid and data.spawnid and data.QTYPE then
+            local key = tostring(data.questid) .. ":" .. tostring(data.QTYPE) .. ":" .. tostring(data.spawnid)
+            if not aliases[key] then return false end
+            matched = true
+        end
+    end
+    return matched
+end
 
 -- City maps have no meaningful regional fog. Use the character's visit record
 -- instead, including Alah'Thalas and the normal capital-city map IDs.
@@ -182,14 +252,14 @@ local function IsSameZoneFamily(firstID, secondID)
     if firstID == secondID then return true end
     local seen = {}
     local function AddParents(zoneID)
-        while zoneID and not seen[zoneID] do
+        while zoneID and zoneID ~= 0 and zoneID ~= 1 and not seen[zoneID] do
             seen[zoneID] = true
             local data = GetZoneData(zoneID)
             zoneID = data and data[1]
         end
     end
     AddParents(firstID)
-    while secondID do
+    while secondID and secondID ~= 0 and secondID ~= 1 do
         if seen[secondID] then return true end
         local data = GetZoneData(secondID)
         secondID = data and data[1]
@@ -601,6 +671,36 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
     local currentZoneOnly = tonumber(pfQuest_config["trackingmethod"]) == 5
     local playerMapID = pfMap.GetPlayerMapID and pfMap:GetPlayerMapID() or pfMap.playerMapID
     local hideUnexplored = pfQuest_config["hideunexplored"] == "1"
+    processedQuests.projectedMarkers = processedQuests.projectedMarkers or {}
+    local currentZoneAliases = {}
+    if currentZoneOnly and boundaryAliasMaps[playerMapID] then
+        local candidates = {}
+        local currentNodes = pfMap.nodes.PFQUEST and pfMap.nodes.PFQUEST[playerMapID]
+        if currentNodes then
+            for _, node in pairs(currentNodes) do
+                for _, data in pairs(node) do
+                    if data.questid and data.spawnid and data.QTYPE then
+                        local key = tostring(data.questid) .. ":" .. tostring(data.QTYPE) .. ":" .. tostring(data.spawnid)
+                        candidates[key] = true
+                    end
+                end
+            end
+        end
+        for _, addonData in pairs(pfMap.nodes) do
+            for otherZone, zoneNodes in pairs(addonData) do
+                if otherZone ~= playerMapID then
+                    for _, node in pairs(zoneNodes) do
+                        for _, data in pairs(node) do
+                            if data.questid and data.spawnid and data.QTYPE then
+                                local key = tostring(data.questid) .. ":" .. tostring(data.QTYPE) .. ":" .. tostring(data.spawnid)
+                                if candidates[key] then currentZoneAliases[key] = true end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
     for addon, addonData in pairs(pfMap.nodes) do
         for zID, zoneNodes in pairs(addonData) do
             stats.zonesSeen = stats.zonesSeen + 1
@@ -618,6 +718,13 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                         for title, data in pairs(node) do
                             local needsDeduplication = false
                             local isUtilityNPC = false
+                            if data.questid and data.spawnid and data.QTYPE then
+                                local aliasKey = tostring(data.questid) .. ":" .. tostring(data.QTYPE) .. ":" .. tostring(data.spawnid)
+                                if currentZoneAliases[aliasKey] then
+                                    skipNode = true
+                                    break
+                                end
+                            end
 
                             if data.addon and string.find(data.addon, "TRACK_") then
                                 -- avoid over populating continent maps with crap make zone only
@@ -721,6 +828,43 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                                     skipNode = true
                                 end
                                 local contX, contY = ZoneToContinent(zoneX, zoneY, zID, continent)
+                                if not skipNode and contX and contY then
+                                    -- The same physical quest marker can be exported on both a
+                                    -- Turtle child map and its parent map. Family-related copies
+                                    -- are duplicates even when their independent projections do
+                                    -- not land within the normal proximity tolerance.
+                                    local projectionKeys = {}
+                                    local duplicateProjection = false
+                                    for _, data in pairs(node) do
+                                        if data.questid and data.spawnid and data.QTYPE then
+                                            local key = tostring(data.questid) .. ":" .. tostring(data.QTYPE)
+                                                .. ":" .. tostring(data.spawnid)
+                                            table.insert(projectionKeys, key)
+                                            local previous = processedQuests.projectedMarkers[key]
+                                            if previous and (previous.custom or customContinentTransforms[zID]) then
+                                                local sameZoneFamily = previous.zone
+                                                    and IsSameZoneFamily(previous.zone, zID)
+                                                local nearbyProjection = math.abs(previous.x - contX) <= 0.012
+                                                    and math.abs(previous.y - contY) <= 0.012
+                                                if sameZoneFamily or nearbyProjection then
+                                                    duplicateProjection = true
+                                                    break
+                                                end
+                                            end
+                                        end
+                                    end
+
+                                    if duplicateProjection then
+                                        skipNode = true
+                                    else
+                                        for _, key in pairs(projectionKeys) do
+                                            processedQuests.projectedMarkers[key] = {
+                                                x = contX, y = contY, zone = zID,
+                                                custom = customContinentTransforms[zID] and true or false,
+                                            }
+                                        end
+                                    end
+                                end
                                 if not skipNode and contX and contY then
                                     stats.nodesConverted = stats.nodesConverted + 1
                                     if contX and contY and contX >= 0 and contX <= 1 and contY >= 0 and contY <= 1 then

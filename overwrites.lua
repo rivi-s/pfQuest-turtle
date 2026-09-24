@@ -7,12 +7,26 @@ do -- area trigger
 end
 
 do -- items
+  -- Sara's Comb is obtained by interacting with Sara Flenning.
+  pfDB["items"]["data-turtle"][41695]["U"] = { [62490] = 1.0 }
+
+  -- Bundle of Apples is obtained by interacting with Marisa Arello.
+  pfDB["items"]["data-turtle"][41737]["U"] = { [62146] = 1.0 }
 end
 
 do -- units/npcs
 end
 
 do -- quests
+  -- Replace School Assistance script triggers with the four children.
+  pfDB["quests"]["data-turtle"][41637]["obj"]["U"] = { 62300, 62301, 62302, 62303 }
+
+  -- Replace Empty Houses script triggers with its three residents.
+  pfDB["quests"]["data-turtle"][41643]["obj"]["U"] = { 62154, 62489, 62153 }
+
+  -- Add "Dark Iron Gunpowder Keg" to objectives of "Darker than Iron".
+  pfDB["quests"]["data-turtle"][41677]["obj"]["O"] = { 2020173 }
+
   -- Add "Dark Iron Gunpowder Keg" to objectives of "Vile Dwarven Pigs"
   -- The extractor scripts did not catch those, as the objetive is filled via a Gossip on use.
   pfDB["quests"]["data-turtle"][41682]["obj"]["O"] = { 2020173 }
