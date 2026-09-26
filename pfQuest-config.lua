@@ -69,6 +69,19 @@ local function CreateEntryFrame(data)
                 SetCheckboxVisual(this, value == "1")
             end
         end)
+
+        if data.tooltip then
+            frame.input:SetScript("OnEnter", function()
+                GameTooltip_SetDefaultAnchor(GameTooltip, this)
+                GameTooltip:SetText(data.text)
+                GameTooltip:AddLine(data.tooltip, 1, 1, 1, true)
+                GameTooltip:SetWidth(220)
+                GameTooltip:Show()
+            end)
+            frame.input:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+        end
     elseif data.type == "text" then
         frame.input = CreateFrame("EditBox", nil, frame)
         frame.input:SetTextColor(.2, 1, .8, 1)
