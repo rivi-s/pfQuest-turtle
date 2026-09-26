@@ -8,16 +8,113 @@ end
 
 do -- items
   -- Sara's Comb is obtained by interacting with Sara Flenning.
-  pfDB["items"]["data-turtle"][41695]["U"] = { [62490] = 1.0 }
+  pfDB["items"]["data-turtle"][41695]["U"] = { [62490] = 100 }
 
   -- Bundle of Apples is obtained by interacting with Marisa Arello.
-  pfDB["items"]["data-turtle"][41737]["U"] = { [62146] = 1.0 }
+  pfDB["items"]["data-turtle"][41737]["U"] = { [62146] = 100 }
+
+  -- Windtorn Crest Stone is guaranteed from Razorgust.
+  pfDB["items"]["data-turtle"][42206]["U"] = { [62195] = 100 }
 end
 
 do -- units/npcs
+  -- Correct Farseer Greka's Stonetalon position.
+  pfDB["units"]["data-turtle"][62197]["coords"] = { { 48.4, 68.9, 406, 120 } }
+
+  -- Correct Razorgust's spawn at Windtorn Crest.
+  pfDB["units"]["data-turtle"][62195]["coords"] = { { 29.5, 18.5, 406, 120 } }
+
+  -- Replace the obsolete Renegade Air Elemental cluster with the current
+  -- player-surveyed Windtorn Crest pass spawns.
+  pfDB["units"]["data-turtle"][62194]["coords"] = {
+    { 34.4, 18.4, 406, 120 },
+    { 34.8, 17.0, 406, 120 },
+    { 33.8, 18.6, 406, 120 },
+    { 32.7, 17.9, 406, 120 },
+    { 31.9, 17.5, 406, 120 },
+    { 31.8, 16.5, 406, 120 },
+    { 31.1, 16.4, 406, 120 },
+    { 30.8, 17.7, 406, 120 },
+    { 31.5, 18.5, 406, 120 },
+    { 30.4, 18.2, 406, 120 },
+    { 30.3, 16.7, 406, 120 },
+    { 29.6, 16.1, 406, 120 },
+    { 28.9, 15.6, 406, 120 },
+    { 28.9, 17.0, 406, 120 },
+  }
+
+  -- Sorrowguard Keep overlaps the Deadwind Pass and Swamp of Sorrows map
+  -- rectangles. The client opens Swamp of Sorrows inside the keep, while the
+  -- extracted NPC records only contain Deadwind Pass coordinates.
+  local sorrowguardSwampCoords = {
+    [92012] = { 1.98, 52.81 },
+    [92013] = { 2.85, 48.34 },
+    [92014] = { 1.54, 50.74 },
+    [92015] = { 3.51, 50.84 },
+    [92016] = { 2.96, 48.99 },
+    [92017] = { 2.42, 50.63 },
+    [92018] = { 1.54, 50.30 },
+    [92019] = { 0.89, 49.43 },
+    [92020] = { 1.54, 49.97 },
+    [92021] = { 1.98, 52.04 },
+    [92022] = { 3.61, 49.65 },
+    [92023] = { 3.51, 50.63 },
+  }
+
+  for unitID, position in pairs(sorrowguardSwampCoords) do
+    local unit = pfDB["units"]["data-turtle"][unitID]
+    if unit then
+      unit["coords"] = unit["coords"] or {}
+      local exists = false
+      for _, coord in pairs(unit["coords"]) do
+        if coord[3] == 8 then exists = true break end
+      end
+      if not exists then
+        table.insert(unit["coords"], { position[1], position[2], 8, 300 })
+      end
+    end
+  end
 end
 
 do -- quests
+  -- Restore class restrictions and objective links omitted by extraction.
+  pfDB["quests"]["data-turtle"][41938]["class"] = 64
+  pfDB["quests"]["data-turtle"][41939]["class"] = 64
+  pfDB["quests"]["data-turtle"][41939]["obj"] = pfDB["quests"]["data-turtle"][41939]["obj"] or {}
+  pfDB["quests"]["data-turtle"][41939]["obj"]["U"] = { 62783 }
+
+  -- Scripted objectives below have no useful NPC/object/item map target, but
+  -- they are not complete immediately on acceptance. An empty objective table
+  -- keeps the ender grey until the client reports actual completion.
+  local scriptedObjectiveQuests = {
+    40581,             -- emote/pat Krog
+    40737,             -- wait for Tazzo's experiment
+    40777,             -- confront Zoki through dialogue
+    41110,             -- win a Blood Ring battle
+    41222, 41225,      -- dialogue/presentation actions
+    41320,             -- listen to Akh Z'ador's story
+    41569, 41570, 41571, -- Brewfest dancing
+    41861,             -- complete Rethevus's scripted challenge
+    42085,             -- witness the Moonhoof celebration
+    42098, 42099,      -- win a Thorn Gorge battle
+    50310, 50311, 50312, 50313, 50316, -- Mirage Raceway scripts
+    80704,             -- choose Vladeus's outcome
+  }
+  for _, questID in pairs(scriptedObjectiveQuests) do
+    local quest = pfDB["quests"]["data-turtle"][questID]
+    if quest then quest["obj"] = quest["obj"] or {} end
+  end
+
+  -- Both Windhorn Canyon relic quests use the Windhorn Relic object.
+  for _, questID in pairs({ 41976, 41977 }) do
+    pfDB["quests"]["data-turtle"][questID]["obj"] = pfDB["quests"]["data-turtle"][questID]["obj"] or {}
+    pfDB["quests"]["data-turtle"][questID]["obj"]["O"] = { 2020320 }
+  end
+
+  -- Light of An'she and Spiritwalk are Tauren priest quests.
+  pfDB["quests"]["data-turtle"][42058]["class"] = 16
+  pfDB["quests"]["data-turtle"][42060]["class"] = 16
+
   -- Replace School Assistance script triggers with the four children.
   pfDB["quests"]["data-turtle"][41637]["obj"]["U"] = { 62300, 62301, 62302, 62303 }
 
