@@ -1,5 +1,12 @@
 # pfQuest Turtle patch notes
 
+## 1.0.25 — 2026-09-26
+
+- Added an opt-in (Beta) party quest map pins feature: see party members' active quest objectives as map pins, with an optional nav-arrow route to them.
+- Fixed Current Zone Only briefly showing Desolace quests while in Stonetalon Mountains.
+- Fixed Sorrowguard Keep quests disappearing while inside the keep.
+- Corrected several Windhorn/Stonetalon quest issues: wrong item drop rates, incorrect NPC spawn positions, missing class restrictions, a missing kill objective, and a batch of scripted-completion quests that appeared finished immediately on acceptance.
+
 ## 1.0.24 — 2026-09-24
 
 - Added calibrated Eastern Kingdoms projections for Balor, Grim Reaches, Northwind, and Gilneas.
