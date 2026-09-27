@@ -557,7 +557,7 @@ local function ExtendPfQuestConfig()
     end
 
     if not found then
-        table.insert(pfQuest_defconfig, { text = "|cff33ffccNameplates|r", type = "header" })
+        table.insert(pfQuest_defconfig, { text = "Nameplate Quest Icons", type = "header", page = "questing" })
         table.insert(pfQuest_defconfig, { text = "Show Quest Icons on Nameplates", default = "1", type = "checkbox", config = "nameplatesEnabled" })
         table.insert(pfQuest_defconfig, { text = "Icon Scale", default = "1", type = "text", config = "nameplateScale" })
         table.insert(pfQuest_defconfig, { text = "Icon X Position", default = "-20", type = "text", config = "nameplateX" })

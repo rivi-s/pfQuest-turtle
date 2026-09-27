@@ -11,14 +11,20 @@ local function Clamp(value, minimum, maximum)
   return value
 end
 
-local function GetDefaultScale()
-  return math.min(MAX_SCALE, MIN_SCALE / UIParent:GetEffectiveScale())
-end
-
 local function GetMaximumScale()
   local horizontal = (UIParent:GetWidth() - 40) / pfQuestConfig.resizeBaseWidth
   local vertical = (UIParent:GetHeight() - 40) / pfQuestConfig.resizeBaseHeight
   return math.min(MAX_SCALE, horizontal, vertical)
+end
+
+local function GetDefaultScale()
+  -- New characters have no saved scale yet. Start them at the largest size
+  -- that fits their current screen instead of the old minimum-size default.
+  return GetMaximumScale()
+end
+
+local function GetMinimumScale()
+  return math.min(MAX_SCALE, MIN_SCALE / UIParent:GetEffectiveScale())
 end
 
 local function InstallConfigResize()
@@ -32,7 +38,7 @@ local function InstallConfigResize()
   pfQuestConfig.resizeDefaultScale = GetDefaultScale()
   local function ApplyScale(scale)
     local maximum = GetMaximumScale()
-    local minimum = math.min(pfQuestConfig.resizeDefaultScale, maximum)
+    local minimum = math.min(GetMinimumScale(), maximum)
     scale = Clamp(scale, minimum, maximum)
     pfQuestConfig:SetScale(scale)
     pfQuest_config = pfQuest_config or {}

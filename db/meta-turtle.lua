@@ -2809,4 +2809,52 @@ pfDB["meta-turtle"] = {
     [92221] = "H",
     [93115] = "AH",
   },
+  -- Turtle's "chop for wood" gathering objects, gated behind the custom
+  -- Survival skill (professions-turtle.lua ids 51/142) the same way herbs
+  -- and mines are gated behind Herbalism/Mining. Value is the Survival skill
+  -- level required, read by SearchMetaRelation's skill-range filter.
+  -- Twisted Tree Sapling (2020311) is a different, unrelated object and is
+  -- deliberately not included here.
+  ["trees"] = {
+    -- Simple Wood Tree (Survival 15)
+    [-2020267] = 15, -- Durotar
+    [-2020268] = 15, -- Barrens
+    [-2020269] = 15, -- Mulgore
+    [-2020270] = 15, -- Teldrassil
+    [-2020271] = 15, -- Darkshore
+    [-2020272] = 15, -- Elwynn
+    [-2020273] = 15, -- Westfall
+    [-2020274] = 15, -- Duskwood
+    [-2020275] = 15, -- Redridge
+    [-2020276] = 15, -- Dun Morogh
+    [-2020277] = 15, -- Loch Modan
+    [-2020278] = 15, -- Tirisfal
+    [-2020279] = 15, -- Silverpine
+    [-2020280] = 15, -- Wetlands
+    [-2020281] = 15, -- Blackstone Island
+    [-2020301] = 15, -- Thalassian Highlands
+    -- Bright Wood (Survival level unconfirmed -- TODO: replace 0 once known)
+    [-2020282] = 0, -- Hillsbrad
+    [-2020283] = 0, -- Thousand Needles
+    [-2020284] = 0, -- Northwind
+    [-2020285] = 0, -- Balor
+    [-2020286] = 0, -- Ashenvale
+    [-2020287] = 0, -- Stonetalon
+    -- Shade Wood Tree (Survival 175)
+    [-2020288] = 175, -- Stranglethorn
+    [-2020289] = 175, -- Grim Reaches
+    [-2020290] = 175, -- Arathi Highlands
+    [-2020291] = 175, -- Alterac Mountains
+    [-2020292] = 175, -- Badlands
+    [-2020293] = 175, -- Dustwallow Marsh
+    [-2020294] = 175, -- Desolace
+    [-2020295] = 175, -- Swamp of Sorrows
+    [-2020296] = 175, -- Hinterlands
+    [-2020297] = 175, -- Gilneas
+    [-2020309] = 175, -- Feralas
+    -- Single global variants (Survival level unconfirmed -- TODO: replace 0)
+    [-2020298] = 0, -- Tropical Wood Tree
+    [-2020299] = 0, -- Star Wood Tree
+    [-2020300] = 0, -- Dead Wood Tree
+  },
 }

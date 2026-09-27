@@ -9,8 +9,9 @@ local function ExtendPfQuestConfig()
     table.insert(
         pfQuest_defconfig,
         {
-            text = "|cff33ffccQuest automation|r",
-            type = "header"
+            text = "Quest Log Automation",
+            type = "header",
+            page = "questing"
         }
     )
 

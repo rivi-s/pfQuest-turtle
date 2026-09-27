@@ -1093,13 +1093,13 @@ local function ExtendPfQuestConfig()
         end
     end
 
-    table.insert(pfQuest_defconfig, { text = "|cff33ffccContinent Map|r", type = "header" })
+    table.insert(pfQuest_defconfig, { text = "Continent Map", type = "header", page = "map" })
     table.insert(pfQuest_defconfig, { text = "Display Continent Pins", default = "1", type = "checkbox", config = "continentPins" })
     table.insert(pfQuest_defconfig, { text = "Require Ctrl+Click for Continent Pin Interaction", default = "1", type = "checkbox", config = "continentClickThrough" })
     table.insert(pfQuest_defconfig, { text = "Continent Node Size", default = "12", type = "text", config = "continentNodeSize" })
     table.insert(pfQuest_defconfig, { text = "Continent Utility Node Size", default = "14", type = "text", config = "continentUtilityNodeSize" })
 
-    table.insert(pfQuest_defconfig, { text = "|cff33ffccQuest Filters|r", type = "header" })
+    table.insert(pfQuest_defconfig, { text = "Quest Filters", type = "header", page = "map" })
     table.insert(pfQuest_defconfig, { text = "Hide Chicken Quests (CLUCK!)", default = "1", type = "checkbox", config = "hideChickenQuests" })
     table.insert(pfQuest_defconfig, { text = "Hide Felwood Corrupted Flowers", default = "1", type = "checkbox", config = "hideFelwoodFlowers" })
     table.insert(pfQuest_defconfig, { text = "Hide PvP/Battleground Quests", default = "1", type = "checkbox", config = "hidePvPQuests" })

@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.26 — 2026-09-26
+
+- Added Turtle-only Trees & Wood tracking for Survival gathering nodes, including automatic skill-range filtering.
+- Integrated Turtle settings into the new five-tab configuration window without removing existing options.
+- Defaulted new characters to the largest usable configuration-window size while preserving existing saved sizes.
+
 ## 1.0.25 — 2026-09-26
 
 - Added an opt-in (Beta) party quest map pins feature: see party members' active quest objectives as map pins, with an optional nav-arrow route to them.

@@ -234,7 +234,7 @@ local function ExtendPfQuestConfig()
         return true
     end
 
-    table.insert(pfQuest_defconfig, { text = "|cff33ffccAnnounce|r", type = "header" })
+    table.insert(pfQuest_defconfig, { text = "Quest Announcements", type = "header", page = "questing" })
     table.insert(pfQuest_defconfig, { text = "Announce Finished Quest Objectives", default = "0", type = "checkbox", config = "announceFinished" })
     table.insert(pfQuest_defconfig, { text = "Announce Remaining Quest Objectives", default = "0", type = "checkbox", config = "announceRemaining" })
     table.insert(pfQuest_defconfig, { text = "Show Item Link in Finished Announcement", default = "1", type = "checkbox", config = "announceShowItem" })

@@ -574,8 +574,9 @@ local function ExtendPfQuestConfig()
   end
 
   table.insert(pfQuest_defconfig, {
-    text = "|cff33ffccRare Loot Panel|r",
-    type = "header"
+    text = "Rare Loot Window",
+    type = "header",
+    page = "features"
   })
 
   table.insert(pfQuest_defconfig, {
