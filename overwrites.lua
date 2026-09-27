@@ -18,6 +18,13 @@ do -- items
 end
 
 do -- units/npcs
+  -- Kex Blowmaster was removed from the Southern Barrens.
+  pfDB["units"]["data-turtle"][60443] = "_"
+
+  -- Interacting with the Mysterious Glittering Object summons Kheyna
+  -- Spinpistol, who completes A Letter From a Friend and offers the follow-up.
+  pfDB["units"]["data-turtle"][81041]["coords"] = { { 48.2, 23.4, 440, 300 } }
+
   -- Correct Farseer Greka's Stonetalon position.
   pfDB["units"]["data-turtle"][62197]["coords"] = { { 48.4, 68.9, 406, 120 } }
 
@@ -77,6 +84,10 @@ do -- units/npcs
 end
 
 do -- quests
+  -- A Letter From a Friend is completed by interacting with the Mysterious
+  -- Glittering Object, not by finding its invisible script trigger.
+  pfDB["quests"]["data-turtle"][80407]["obj"] = { ["O"] = { 3000246 } }
+
   -- Restore class restrictions and objective links omitted by extraction.
   pfDB["quests"]["data-turtle"][41938]["class"] = 64
   pfDB["quests"]["data-turtle"][41939]["class"] = 64
@@ -111,9 +122,20 @@ do -- quests
     pfDB["quests"]["data-turtle"][questID]["obj"]["O"] = { 2020320 }
   end
 
-  -- Light of An'she and Spiritwalk are Tauren priest quests.
-  pfDB["quests"]["data-turtle"][42058]["class"] = 16
-  pfDB["quests"]["data-turtle"][42060]["class"] = 16
+  -- The Tauren priest introduction, Light of An'she, and Spiritwalk
+  -- all require the Priest class.
+  for _, questID in pairs({ 42054, 42055, 42056, 42057, 42058, 42059, 42060 }) do
+    pfDB["quests"]["data-turtle"][questID]["class"] = 16
+  end
+
+  -- Tainted Rune is the Dwarf Warlock introduction.
+  pfDB["quests"]["data-turtle"][42045]["class"] = 256
+
+  -- Kex Blowmaster and his Horde quest chain were removed from the game.
+  -- The underscore sentinel tells patchtable to delete extracted overlay rows.
+  for _, questID in pairs({ 40130, 40131, 40133, 41102, 41104 }) do
+    pfDB["quests"]["data-turtle"][questID] = "_"
+  end
 
   -- Replace School Assistance script triggers with the four children.
   pfDB["quests"]["data-turtle"][41637]["obj"]["U"] = { 62300, 62301, 62302, 62303 }

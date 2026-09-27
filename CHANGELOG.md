@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.27 — 2026-09-27
+
+- Linked A Letter From a Friend to the real Mysterious Glittering Object and added Kheyna Spinpistol at the verified Tanaris location.
+- Restored missing class restrictions across the Tauren priest introduction and Tainted Rune.
+- Removed Kex Blowmaster and his obsolete Southern Barrens quest chain.
+
 ## 1.0.26 — 2026-09-26
 
 - Added Turtle-only Trees & Wood tracking for Survival gathering nodes, including automatic skill-range filtering.
