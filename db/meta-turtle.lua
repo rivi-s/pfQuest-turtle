@@ -2816,30 +2816,30 @@ pfDB["meta-turtle"] = {
   -- Twisted Tree Sapling (2020311) is a different, unrelated object and is
   -- deliberately not included here.
   ["trees"] = {
-    -- Simple Wood Tree (Survival 15)
-    [-2020267] = 15, -- Durotar
-    [-2020268] = 15, -- Barrens
-    [-2020269] = 15, -- Mulgore
-    [-2020270] = 15, -- Teldrassil
-    [-2020271] = 15, -- Darkshore
-    [-2020272] = 15, -- Elwynn
-    [-2020273] = 15, -- Westfall
-    [-2020274] = 15, -- Duskwood
-    [-2020275] = 15, -- Redridge
-    [-2020276] = 15, -- Dun Morogh
-    [-2020277] = 15, -- Loch Modan
-    [-2020278] = 15, -- Tirisfal
-    [-2020279] = 15, -- Silverpine
-    [-2020280] = 15, -- Wetlands
-    [-2020281] = 15, -- Blackstone Island
-    [-2020301] = 15, -- Thalassian Highlands
-    -- Bright Wood (Survival level unconfirmed -- TODO: replace 0 once known)
-    [-2020282] = 0, -- Hillsbrad
-    [-2020283] = 0, -- Thousand Needles
-    [-2020284] = 0, -- Northwind
-    [-2020285] = 0, -- Balor
-    [-2020286] = 0, -- Ashenvale
-    [-2020287] = 0, -- Stonetalon
+    -- Simple Wood Tree (Survival 5)
+    [-2020267] = 5, -- Durotar
+    [-2020268] = 5, -- Barrens
+    [-2020269] = 5, -- Mulgore
+    [-2020270] = 5, -- Teldrassil
+    [-2020271] = 5, -- Darkshore
+    [-2020272] = 5, -- Elwynn
+    [-2020273] = 5, -- Westfall
+    [-2020274] = 5, -- Duskwood
+    [-2020275] = 5, -- Redridge
+    [-2020276] = 5, -- Dun Morogh
+    [-2020277] = 5, -- Loch Modan
+    [-2020278] = 5, -- Tirisfal
+    [-2020279] = 5, -- Silverpine
+    [-2020280] = 5, -- Wetlands
+    [-2020281] = 5, -- Blackstone Island
+    [-2020301] = 5, -- Thalassian Highlands
+    -- Bright Wood Tree (Survival 125)
+    [-2020282] = 125, -- Hillsbrad
+    [-2020283] = 125, -- Thousand Needles
+    [-2020284] = 125, -- Northwind
+    [-2020285] = 125, -- Balor
+    [-2020286] = 125, -- Ashenvale
+    [-2020287] = 125, -- Stonetalon
     -- Shade Wood Tree (Survival 175)
     [-2020288] = 175, -- Stranglethorn
     [-2020289] = 175, -- Grim Reaches
@@ -2852,9 +2852,9 @@ pfDB["meta-turtle"] = {
     [-2020296] = 175, -- Hinterlands
     [-2020297] = 175, -- Gilneas
     [-2020309] = 175, -- Feralas
-    -- Single global variants (Survival level unconfirmed -- TODO: replace 0)
-    [-2020298] = 0, -- Tropical Wood Tree
-    [-2020299] = 0, -- Star Wood Tree
-    [-2020300] = 0, -- Dead Wood Tree
+    -- Single global variants
+    [-2020298] = 225, -- Tropical Wood Tree
+    [-2020299] = 270, -- Star Wood Tree
+    [-2020300] = 250, -- Dead Wood Tree
   },
 }
