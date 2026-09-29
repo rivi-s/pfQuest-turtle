@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.28 — 2026-09-29
+
+- Restored 64 missing prerequisite relationships that could expose later chain steps too early, including Vimes's Report.
+- Added missing routes and objective sources for Reports of Dustwallow, The Land of Kings, and The Missing Diplomat at Sentry Point.
+- Removed both obsolete Stinky's Escape variants and their removed quest NPC.
+
 ## 1.0.27 — 2026-09-27
 
 - Linked A Letter From a Friend to the real Mysterious Glittering Object and added Kheyna Spinpistol at the verified Tanaris location.
