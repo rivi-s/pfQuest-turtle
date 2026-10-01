@@ -90,13 +90,26 @@ local zoneToUiMapID = {
 -- normalized bounds are measured from the client continent map; add future
 -- custom-zone calibrations here without altering the projection code.
 local customContinentTransforms = {
+    -- Tel'Abim: south-east of Tanaris on the Kalimdor map. Calibrated at
+    -- Tel'Abim 40.59 / 78.10 against Kalimdor 64.01 / 88.42, using its
+    -- client WorldMapArea dimensions (3227 x 2187).
+    [5121] = { continent = 1, left = 0.604506, top = 0.814578, width = 0.087691, height = 0.089145 },
+    -- Gillijim's Isle: south of Lapidis Isle on the Eastern Kingdoms map.
+    -- Calibrated at Gillijim's Isle 52.53 / 22.39 against Eastern Kingdoms
+    -- 37.47 / 87.16, using its client dimensions (2464.9438 x 1927.3799).
+    [408] = { continent = 2, left = 0.342729, top = 0.853392, width = 0.060863, height = 0.081324 },
+    -- Lapidis Isle: south-west of Stranglethorn Vale on the Eastern Kingdoms
+    -- map. Calibrated at Lapidis Isle 60.15 / 42.30 against Eastern Kingdoms
+    -- 36.40 / 82.33, using its client dimensions (2165.0662 x 2042.8711).
+    [409] = { continent = 2, left = 0.331845, top = 0.786839, width = 0.053458, height = 0.086197 },
     -- Alah'Thalas: Eastern Kingdoms. Fitted from Warden Sira Moonwarden
     -- (26.7 / 25.9 -> 50.9 / 13.0) and Marrondra
     -- (35.7 / 32.5 -> 51.3 / 13.3).
     [2040] = { continent = 2, left = 0.49713, top = 0.11823, width = 0.04444, height = 0.04545 },
-    -- Moonwhisper Coast: north-east of Kalimdor, visible on the client map.
-    -- Calibrated against Gordnak (51.89 / 36.61) at Kalimdor 61.1 / 18.9.
-    [5642] = { continent = 1, left = 0.445, top = -0.016, width = 0.32, height = 0.56 },
+    -- Moonwhisper Coast: north-east of Kalimdor. Calibrated against Gordnak
+    -- (51.89 / 36.61) at Kalimdor 61.1 / 18.9, using its client
+    -- WorldMapArea dimensions (7856 x 5241).
+    [5642] = { continent = 1, left = 0.500226, top = 0.110790, width = 0.213479, height = 0.213629 },
     -- Blackstone Island: east of Durotar. The Turtle client exposes this as
     -- its own map, without a Blizzard WorldMapArea rectangle, so it needs a
     -- calibrated continent-space transform.
@@ -132,7 +145,6 @@ pfMap.customContinentTransforms = customContinentTransforms
 -- do not need a custom projection.
 local boundaryAliasMaps = {}
 for zoneID in pairs(customContinentTransforms) do boundaryAliasMaps[zoneID] = true end
-boundaryAliasMaps[5121] = true -- Tel'Abim
 boundaryAliasMaps[406] = true -- Stonetalon / Desolace border overlap
 
 function pfMap:BuildBoundaryAliasKeys(map)

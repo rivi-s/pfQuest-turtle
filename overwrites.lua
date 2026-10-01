@@ -149,6 +149,14 @@ do -- quests
   -- objective so the map and route arrow lead to the Gong of Corthan.
   pfDB["quests"]["data-turtle"][40713]["obj"]["IR"] = { 60944 }
 
+  -- The Black Waltz begins by interacting with Aliattan's Campfire, which
+  -- then spawns the Widow event represented by the existing unit objective.
+  pfDB["quests"]["data-turtle"][40908]["obj"]["O"] = { 2020026 }
+
+  -- The extracted level for Spitecrest Decursions is stale. Turtle's live
+  -- quest log reports this step as level 47.
+  pfDB["quests"]["data-turtle"][40947]["lvl"] = 47
+
   -- A Letter From a Friend is completed by interacting with the Mysterious
   -- Glittering Object, not by finding its invisible script trigger.
   pfDB["quests"]["data-turtle"][80407]["obj"] = { ["O"] = { 3000246 } }

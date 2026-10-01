@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.29 — 2026-09-30
+
+- Added Aliattan's Campfire as the event starter for The Black Waltz and corrected Spitecrest Decursions to level 47.
+- Added calibrated continent projections for Lapidis Isle, Gillijim's Isle, and Tel'Abim.
+- Replaced Moonwhisper Coast's rough continent placement with its client-derived projection.
+
 ## 1.0.28 — 2026-09-29
 
 - Restored 64 missing prerequisite relationships that could expose later chain steps too early, including Vimes's Report.
