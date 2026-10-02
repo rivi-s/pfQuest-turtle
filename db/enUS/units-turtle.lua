@@ -6062,6 +6062,7 @@ pfDB["units"]["enUS-turtle"] = {
   [62988] = "Tooru",
   [62990] = "Ambassador Eka'ghar",
   [62992] = "Elder Bhu'robi",
+  [62993] = "Hara'ne",
   [62994] = "Maghan",
   [62996] = "Shadewalker Brute",
   [62997] = "Suntail",
