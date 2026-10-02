@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.31 — 2026-10-02
+
+- Reduced party quest synchronization work to prevent group joins and quest turn-ins from stuttering.
+- Enabled automatic acceptance and turn-in for newer Turtle report quests with objective-free hand-ins.
+- Corrected More Silk for the Wounded to start from Hara'ne and added her verified Moonwhisper Coast location.
+
 ## 1.0.30 — 2026-10-01
 
 - Reduced continent-map lag from items with very large source lists while preserving every precise zone-map location.
