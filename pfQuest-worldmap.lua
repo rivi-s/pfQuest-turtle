@@ -695,6 +695,70 @@ local function PlaceCityPinsOnParentMap(parentID, pinCount)
     return pinCount
 end
 
+-- Dense item-source queries can contain hundreds of creature or object
+-- spawns. Every point remains available on zone maps, but continent maps need
+-- only enough representatives to show the item's geographic distribution.
+-- A 1.5% map-space radius is roughly 12-16 pixels at normal World Map sizes.
+local continentItemSpacing = 0.015
+local function GetContinentItemKeys(node)
+    local keys, seen = {}, {}
+    for _, data in pairs(node) do
+        local qtype = tostring(data.QTYPE or "")
+        local itemSource = data.item and (not data.questid
+            or string.find(qtype, "ITEM_OBJECTIVE", 1, true) == 1)
+        if not itemSource then return nil end
+
+        local key = tostring(data.questid or "DB") .. ":" .. tostring(data.itemid or data.item)
+        if not seen[key] then
+            seen[key] = true
+            table.insert(keys, key)
+        end
+    end
+    return table.getn(keys) > 0 and keys or nil
+end
+
+local function ThinContinentItemNode(processedQuests, node, continent, x, y)
+    local keys = GetContinentItemKeys(node)
+    if not keys then return false end
+
+    processedQuests.itemDensityBuckets = processedQuests.itemDensityBuckets or {}
+    processedQuests.itemDensityBuckets[continent] = processedQuests.itemDensityBuckets[continent] or {}
+    local continentBuckets = processedQuests.itemDensityBuckets[continent]
+    local cellX = math.floor(x / continentItemSpacing)
+    local cellY = math.floor(y / continentItemSpacing)
+    local allCovered = true
+
+    for _, key in pairs(keys) do
+        local itemBuckets = continentBuckets[key]
+        local covered = false
+        if itemBuckets then
+            for offsetX = -1, 1 do
+                for offsetY = -1, 1 do
+                    local previous = itemBuckets[(cellX + offsetX) .. ":" .. (cellY + offsetY)]
+                    if previous then
+                        local dx, dy = previous.x - x, previous.y - y
+                        if dx * dx + dy * dy < continentItemSpacing * continentItemSpacing then
+                            covered = true
+                            break
+                        end
+                    end
+                end
+                if covered then break end
+            end
+        end
+        if not covered then allCovered = false end
+    end
+
+    if allCovered then return true end
+
+    for _, key in pairs(keys) do
+        local itemBuckets = continentBuckets[key] or {}
+        continentBuckets[key] = itemBuckets
+        itemBuckets[cellX .. ":" .. cellY] = { x = x, y = y }
+    end
+    return false
+end
+
 local function PlaceContinentPins(continent, layout, pinCount, playerLevel, processedQuests, stats)
     local currentZoneOnly = tonumber(pfQuest_config["trackingmethod"]) == 5
     local playerMapID = pfMap.GetPlayerMapID and pfMap:GetPlayerMapID() or pfMap.playerMapID
@@ -908,6 +972,11 @@ local function PlaceContinentPins(continent, layout, pinCount, playerLevel, proc
                                                 custom = customContinentTransforms[zID] and true or false,
                                             }
                                         end
+                                    end
+                                end
+                                if not skipNode and contX and contY then
+                                    if ThinContinentItemNode(processedQuests, node, continent, contX, contY) then
+                                        skipNode = true
                                     end
                                 end
                                 if not skipNode and contX and contY then

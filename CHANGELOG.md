@@ -1,5 +1,10 @@
 # pfQuest Turtle patch notes
 
+## 1.0.30 — 2026-10-01
+
+- Reduced continent-map lag from items with very large source lists while preserving every precise zone-map location.
+- Added the final four Moonwhisper Coast settlement NPC locations and restored Needles Cougar and Pesterhide Hyena objectives for The Need to Survive.
+
 ## 1.0.29 — 2026-09-30
 
 - Added Aliattan's Campfire as the event starter for The Black Waltz and corrected Spitecrest Decursions to level 47.
