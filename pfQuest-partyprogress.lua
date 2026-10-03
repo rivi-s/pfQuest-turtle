@@ -1,40 +1,49 @@
-local PARTYPROGRESS_DEBUG = false
-local function DebugPrint(msg)
-    if PARTYPROGRESS_DEBUG then
-        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffcc[PartyProgress]|r " .. msg)
-    end
+-- Older standard cores do not expose the optional backend boundary.
+local function HDBEnabled()
+  return pfDatabase and type(pfDatabase.IsHDBEnabled) == "function"
+    and pfDatabase:IsHDBEnabled() or false
 end
 
+local PARTYPROGRESS_DEBUG = false
 local partyQuestData = {}
 local myQuestMappings = {}
 local lastBroadcastState = {}
 local previousQuestList = {}
 local lastPartyPinSignature = nil
+local RenderPartyQuestPins
+
+local function CanonicalPlayerName(name)
+    name = tostring(name or "")
+    name = string.gsub(name, "|c%x%x%x%x%x%x%x%x", "")
+    name = string.gsub(name, "|r", "")
+    name = string.gsub(name, "^%s+", "")
+    name = string.gsub(name, "%s+$", "")
+    name = string.gsub(name, "%-.*$", "")
+    return string.lower(name)
+end
 
 local function CleanupPartyData()
     local validPlayers = {}
-    validPlayers[UnitName("player")] = true
+    validPlayers[CanonicalPlayerName(UnitName("player"))] = true
 
     for i = 1, GetNumPartyMembers() do
         local name = UnitName("party" .. i)
         if name then
-            validPlayers[name] = true
+            validPlayers[CanonicalPlayerName(name)] = true
         end
     end
 
     for playerName in pairs(partyQuestData) do
-        if not validPlayers[playerName] then
+        if not validPlayers[CanonicalPlayerName(playerName)] then
             partyQuestData[playerName] = nil
         end
     end
 end
 
-local function RebuildQuestMappings()
-    if not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"] then
-        return
-    end
-
-    if not pfDB["quests"]["enUS"] then
+local function RebuildQuestMappings(onComplete)
+    local hdbAvailable = HDBEnabled() and type(pfQuestHearthDB.GetQuestTargetsAsync) == "function"
+    if not hdbAvailable and (not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"] or not pfDB["quests"]["enUS"]) then
+        if onComplete then onComplete() end
         return
     end
 
@@ -54,16 +63,13 @@ local function RebuildQuestMappings()
         if questTitle and complete ~= 1 then
             activeQuests[questTitle] = {}
             local questId = questIdByLogIndex[qid]
-            if not questId and pfDatabase and pfDatabase.GetQuestIDs then
+            if not questId then
                 local preserveSelection = QuestLogFrame and QuestLogFrame:IsShown()
                 local ids = pfDatabase:GetQuestIDs(qid, preserveSelection)
                 questId = ids and tonumber(ids[1])
             end
-            if questId then
-                activeQuestIds[questId] = true
-            else
-                unresolvedTitles[questTitle] = true
-            end
+            if questId then activeQuestIds[questId] = { title = questTitle, objectives = activeQuests[questTitle] }
+            else unresolvedTitles[questTitle] = true end
             -- The client can briefly return nil while the quest log is
             -- unavailable during transitions such as taking a flight path.
             local numObjectives = tonumber(GetNumQuestLeaderBoards(qid)) or 0
@@ -83,6 +89,54 @@ local function RebuildQuestMappings()
                 end
             end
         end
+    end
+
+    if hdbAvailable then
+        myQuestMappings = {}
+        local pending = 0
+        for _ in pairs(activeQuestIds) do pending = pending + 1 end
+        if pending == 0 then if onComplete then onComplete() end return end
+
+        local function StoreMapping(targetName, questId, questTitle, activeObj, target)
+            myQuestMappings[targetName] = myQuestMappings[targetName] or {}
+            table.insert(myQuestMappings[targetName], {
+                quest = questTitle, questId = questId, objective = activeObj.objective,
+                current = activeObj.current, total = activeObj.total,
+                targetId = target.targetID, itemId = target.originKind == "I" and target.originID or nil,
+                targetType = target.originKind == "I" and (target.targetKind == "O" and "O" or "I") or target.targetKind
+            })
+        end
+
+        for questId, active in pairs(activeQuestIds) do
+            local currentQuestId, current = questId, active
+            pfQuestHearthDB:GetQuestTargetsAsync(currentQuestId, function(records, err)
+                if not err and records then
+                    local seen = {}
+                    for _, target in ipairs(records) do
+                        if target.phase == "obj" and (target.targetKind == "U" or target.targetKind == "O") and target.title then
+                            for _, activeObj in ipairs(current.objectives) do
+                                local matches = false
+                                if target.originKind == "I" and target.itemTitle then
+                                    matches = string.find(activeObj.objective, target.itemTitle, 1, true) and true or false
+                                elseif (target.originKind or target.targetKind) == target.targetKind then
+                                    local objectiveBase = string.gsub(activeObj.objective, " slain$", "")
+                                    objectiveBase = string.gsub(objectiveBase, " killed$", "")
+                                    matches = objectiveBase == target.title or string.find(activeObj.objective, target.title, 1, true)
+                                end
+                                local key = target.title .. ":" .. activeObj.objective
+                                if matches and not seen[key] then
+                                    seen[key] = true
+                                    StoreMapping(target.title, currentQuestId, current.title, activeObj, target)
+                                end
+                            end
+                        end
+                    end
+                end
+                pending = pending - 1
+                if pending == 0 and onComplete then onComplete() end
+            end)
+        end
+        return
     end
 
     -- Party joins and quest turn-ins can produce several QUEST_LOG_UPDATE
@@ -252,6 +306,7 @@ local function RebuildQuestMappings()
             end
         end
     end
+    if onComplete then onComplete() end
 end
 
 local function CaptureMyQuestData(targetKey, questTitle, objectiveText, current, total)
@@ -281,6 +336,232 @@ end
 
 local function BuildStateString(targetKey, questData)
     return string.format("%s:%s:%d:%d", targetKey, questData.quest, questData.current, questData.total)
+end
+
+-- True when the local player also has this exact quest+objective active
+-- (tracked via the same myQuestMappings this file already builds for its own
+-- tooltip/broadcast use). When true, the player's own normal PFQUEST pin
+-- already sits at this spot -- HookPfQuestTooltip already appends every
+-- party member's progress to that pin's tooltip -- so a separate PFPARTY pin
+-- would only be a redundant, differently-styled duplicate at the same coords.
+local function LocalPlayerHasObjective(targetKey, questTitle, objectiveText)
+    local quests = myQuestMappings[targetKey]
+    if not quests then return false end
+    for _, localData in ipairs(quests) do
+        if localData.quest == questTitle and localData.objective == objectiveText then
+            return true
+        end
+    end
+    return false
+end
+
+-- Renders party members' active, incomplete quest objectives as map pins
+-- under a dedicated "PFPARTY" addon namespace, kept separate from the
+-- player's own "PFQUEST" pins so it never appears in the quest tracker
+-- (tracker.lua only reads PFQUEST nodes). Only rendered for objectives the
+-- local player does NOT also have active (see LocalPlayerHasObjective above)
+-- -- otherwise the normal PFQUEST pin already covers it. Opt-in via the
+-- showPartyQuestPins config checkbox. No meta.texture is set: map.lua's
+-- UpdateNode gives an untextured PFPARTY node the same star shape as the
+-- "fav" marker but tinted through the ordinary color-hash/click-to-recolor
+-- path (see the frame.addon == "PFPARTY" branch there), and (since QTYPE
+-- below always contains "OBJECTIVE") it becomes eligible for the same
+-- raw-objective route-arrow targeting those use -- a dedicated meta.texture
+-- would have skipped both (see the route-eligibility gate added in map.lua's
+-- raw-objective detection for the opt-out).
+-- Forward-declared above: both this synchronous caller and
+-- ProcessHDBPartyEntry's async GetQuestMapPinsAsync callback need to call it,
+-- and the async one resolves after this point in the file.
+RenderPartyQuestPins = function()
+    if not pfMap or not pfMap.DeleteNode then
+        return
+    end
+
+    local enabled = pfQuest_config and pfQuest_config["showPartyQuestPins"] == "1"
+
+    -- Cheap signature of what would actually be drawn. Several triggers call
+    -- this function far more often than the rendered pin set ever changes
+    -- (e.g. QUEST_LOG_UPDATE firing on unrelated log activity); tearing down
+    -- and rebuilding identical nodes on every one of those made a pin's
+    -- tooltip flicker/disappear if the player happened to be hovering it.
+    local sigParts = {}
+    if enabled then
+        for playerName, targets in pairs(partyQuestData) do
+            for targetKey, quests in pairs(targets) do
+                for _, data in ipairs(quests) do
+                    if data.targetType and data.targetId and data.questId
+                      and (data.current or 0) < (data.total or 0)
+                      and not LocalPlayerHasObjective(targetKey, data.quest, data.objective) then
+                        table.insert(sigParts, playerName .. ":" .. targetKey .. ":" .. data.quest
+                            .. ":" .. data.current .. "/" .. data.total)
+                    end
+                end
+            end
+        end
+        table.sort(sigParts)
+    end
+    local signature = enabled and table.concat(sigParts, ";") or "off"
+
+    if signature == lastPartyPinSignature then
+        return
+    end
+    lastPartyPinSignature = signature
+
+    pfMap:DeleteNode("PFPARTY")
+
+    if not enabled then
+        return
+    end
+
+    for playerName, targets in pairs(partyQuestData) do
+        for targetKey, quests in pairs(targets) do
+            for _, data in ipairs(quests) do
+                if data.targetType and data.targetId and data.questId
+                  and (data.current or 0) < (data.total or 0)
+                  and not LocalPlayerHasObjective(targetKey, data.quest, data.objective) then
+                    if data.spawns and table.getn(data.spawns) > 0 then
+                        -- HDB-resolved target: GetQuestMapPinsAsync already gave us
+                        -- real coordinates from SQLite, one per known spawn point.
+                        -- Those IDs are a different space than the legacy static
+                        -- pfDB.units/objects tables, so SearchMobID/SearchObjectID
+                        -- would silently find nothing here (see SearchQuestPreviewHDB
+                        -- and AddPin in hdb_adapter.lua for the same direct-AddNode
+                        -- pattern used elsewhere for HDB pins). Mirror AddPin's field
+                        -- mapping so tooltip/loot-panel behave like an ordinary quest
+                        -- pin; only addon marks this as a party pin.
+                        for _, spawn in ipairs(data.spawns) do
+                            local qtype, item
+                            local spawntype = spawn.targetKind == "O" and pfQuest_Loc["Object"] or pfQuest_Loc["Unit"]
+                            if spawn.originKind == "I" then
+                                qtype = "ITEM_OBJECTIVE_LOOT"
+                                item = spawn.itemTitle or (pfDB.items.loc and pfDB.items.loc[spawn.originID])
+                            elseif spawn.targetKind == "O" then
+                                qtype = "OBJECT_OBJECTIVE"
+                            else
+                                qtype = "UNIT_OBJECTIVE"
+                            end
+
+                            pfMap:AddNode({
+                                addon = "PFPARTY",
+                                title = data.quest,
+                                quest = data.quest,
+                                questid = data.questId,
+                                questObjective = data.objective,
+                                level = spawn.level or UNKNOWN,
+                                spawn = targetKey,
+                                spawnid = spawn.targetID or data.targetId,
+                                spawntype = spawntype,
+                                zone = spawn.zone,
+                                x = spawn.x,
+                                y = spawn.y,
+                                respawn = spawn.respawn and SecondsToTime(spawn.respawn) or "N/A",
+                                droprate = spawn.sourceKind == "V" and nil or spawn.chance,
+                                sellcount = spawn.sourceKind == "V" and spawn.chance or nil,
+                                item = item,
+                                QTYPE = qtype,
+                            })
+                        end
+                    elseif pfDatabase and pfDatabase.SearchMobID and pfDatabase.SearchObjectID then
+                        -- Static-fallback data (HDB provider unavailable): targetId
+                        -- came from the legacy pfDB tables, so the legacy lookup is
+                        -- the correct (and only) way to resolve it, and it already
+                        -- returns every known spawn coordinate for that target.
+                        local meta = {
+                            addon = "PFPARTY",
+                            quest = data.quest,
+                            questid = data.questId,
+                        }
+
+                        if data.targetType == "U" then
+                            pfDatabase:SearchMobID(data.targetId, meta)
+                        elseif data.targetType == "O" then
+                            pfDatabase:SearchObjectID(data.targetId, meta)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- HDB resolves party objectives asynchronously and a full sync may complete
+-- many callbacks in one frame. Coalesce them so the party pin layer is drawn
+-- once after the burst instead of once per resolved objective.
+local partyPinRefresh = CreateFrame("Frame")
+local function QueuePartyPinRender()
+    partyPinRefresh.elapsed = 0
+    partyPinRefresh:SetScript("OnUpdate", function()
+        this.elapsed = this.elapsed + arg1
+        if this.elapsed >= 0.10 then
+            this:SetScript("OnUpdate", nil)
+            RenderPartyQuestPins()
+        end
+    end)
+end
+
+local function StoreRemoteQuestProgress(sender, targetName, questTitle, objectiveText, current, total, questId, targetId, targetType, pin)
+    if not targetName or not questTitle then return end
+    partyQuestData[sender] = partyQuestData[sender] or {}
+    partyQuestData[sender][targetName] = partyQuestData[sender][targetName] or {}
+
+    local data
+    for _, existing in ipairs(partyQuestData[sender][targetName]) do
+        if existing.quest == questTitle then
+            data = existing
+            break
+        end
+    end
+    if not data then
+        data = { quest = questTitle, spawns = {}, spawnSeen = {} }
+        table.insert(partyQuestData[sender][targetName], data)
+    end
+
+    data.objective, data.current, data.total = objectiveText, current, total
+    data.questId, data.targetId, data.targetType = questId, targetId, targetType
+
+    -- Each matching HDB pin is a distinct physical spawn point of this target
+    -- (mirroring how AddPin in hdb_adapter.lua calls pfMap:AddNode once per
+    -- pin for the player's own quests). Keep every one so party pins show all
+    -- known spawns, not just the first resolved.
+    if pin and pin.zoneID and pin.x and pin.y then
+        local coordKey = pin.zoneID .. ":" .. pin.x .. ":" .. pin.y
+        if not data.spawnSeen[coordKey] then
+            data.spawnSeen[coordKey] = true
+            table.insert(data.spawns, {
+                zone = pin.zoneID, x = pin.x, y = pin.y,
+                level = pin.level, respawn = pin.respawn, rank = pin.rank,
+                targetKind = pin.targetKind, targetID = pin.targetID,
+                originKind = pin.originKind, originID = pin.originID,
+                itemTitle = pin.itemTitle, sourceKind = pin.sourceKind, chance = pin.chance,
+            })
+        end
+    end
+end
+
+local function ProcessHDBPartyEntry(sender, targetType, targetId, questId, current, total, objectiveText)
+    if not HDBEnabled() or type(pfQuestHearthDB.GetQuestMapPinsAsync) ~= "function" then return false end
+    local accepted = pfQuestHearthDB:GetQuestMapPinsAsync(questId, function(result, err)
+        if err or not result then return end
+        for _, target in ipairs(result.pins or {}) do
+            -- Only objective pins are real spawn/interaction points; "start"/"end"
+            -- pins (quest giver/turn-in) can coincidentally share a targetKind/ID.
+            local matches = target.phase == "obj" and (
+                (targetType == "I" and target.originKind == "I" and target.originID == targetId)
+                or (targetType ~= "I" and target.targetKind == targetType and target.targetID == targetId)
+            )
+            if matches and target.title then
+                -- Store the specific spawn source's own kind/ID (target.targetKind/
+                -- targetID), not the wire-level targetType/targetId: for an item
+                -- objective those are "I"+itemId, which GetQuestTargetsAsync-style
+                -- rendering can't place a pin at directly, whereas each matched
+                -- target here is a concrete unit or object with real coordinates.
+                StoreRemoteQuestProgress(sender, target.title, result.title, objectiveText, current, total,
+                    questId, target.targetID, target.targetKind, target)
+            end
+        end
+        QueuePartyPinRender()
+    end)
+    return accepted and true or false
 end
 
 local function ShareQuestData(forceFullSync)
@@ -315,7 +596,6 @@ local function ShareQuestData(forceFullSync)
             if questId then
                 local msg = string.format("REMOVEQ:%d:%s", questId, questTitle)
                 SendAddonMessage("pfqt", msg, channel)
-                DebugPrint("REMOVE broadcast - Quest: " .. questTitle .. " (ID: " .. questId .. ")")
             end
         end
     end
@@ -425,7 +705,6 @@ local function ShareQuestData(forceFullSync)
     lastBroadcastState = currentState
 
     if table.getn(changedEntries) == 0 then
-        DebugPrint("no changes to broadcast")
         return
     end
 
@@ -454,10 +733,15 @@ local function ShareQuestData(forceFullSync)
 end
 
 local function ProcessQuestData(sender, message)
+    -- Turtle may qualify addon-message senders with a realm suffix while
+    -- UnitName returns the short name. Keep storage, cleanup, and the local
+    -- echo guard on the same form.
+    local _, _, shortSender = string.find(sender or "", "^([^-]+)")
+    sender = shortSender or sender
     -- Some Turtle clients also fire CHAT_MSG_ADDON for messages we send to the
     -- party. Local progress is already rendered by the normal quest tooltip;
     -- retaining it here produces a duplicate line labelled with our own name.
-    if sender == UnitName("player") then
+    if CanonicalPlayerName(sender) == CanonicalPlayerName(UnitName("player")) then
         return
     end
 
@@ -504,6 +788,10 @@ local function ProcessQuestData(sender, message)
                     objectiveText = "Quest Objective"
                 end
 
+                if ProcessHDBPartyEntry(sender, targetType, targetId, questId, current, total, objectiveText) then
+                    -- HearthDB resolves both the quest title and every matching
+                    -- source name asynchronously; no loaded Lua tables needed.
+                else
                 local questTitle = nil
                 if pfDB and pfDB["quests"] and pfDB["quests"]["enUS"] and pfDB["quests"]["enUS"][questId] then
                     questTitle = pfDB["quests"]["enUS"][questId]["T"]
@@ -631,143 +919,14 @@ local function ProcessQuestData(sender, message)
                         end
                     end
                 end
-            end
-        end
-    end
-end
-
--- True when the local player also has this exact quest+objective active
--- (tracked via the same myQuestMappings this file already builds for its own
--- tooltip/broadcast use). When true, the player's own normal PFQUEST pin
--- already sits at this spot -- HookPfQuestTooltip already appends every
--- party member's progress to that pin's tooltip -- so a separate PFPARTY pin
--- would only be a redundant, differently-styled duplicate at the same coords.
-local function LocalPlayerHasObjective(targetKey, questTitle, objectiveText)
-    local quests = myQuestMappings[targetKey]
-    if not quests then return false end
-    for _, localData in ipairs(quests) do
-        if localData.quest == questTitle and localData.objective == objectiveText then
-            return true
-        end
-    end
-    return false
-end
-
--- Renders party members' active, incomplete quest objectives as map pins
--- under a dedicated "PFPARTY" addon namespace, kept separate from the
--- player's own "PFQUEST" pins so it never appears in the quest tracker
--- (tracker.lua only reads PFQUEST nodes). Only rendered for objectives the
--- local player does NOT also have active (see LocalPlayerHasObjective above)
--- -- otherwise the normal PFQUEST pin already covers it. Opt-in via the
--- showPartyQuestPins config checkbox. No meta.texture is set: map.lua's
--- UpdateNode gives an untextured PFPARTY node the same star shape as the
--- "fav" marker but tinted through the ordinary color-hash/click-to-recolor
--- path (see the frame.addon == "PFPARTY" branch there), and (since QTYPE
--- is not set here, layer defaults to 1 like any other raw spawn) becomes
--- eligible for the same raw-objective route-arrow targeting via route.lua's
--- SetRawObjectiveCandidates -- a dedicated meta.texture would have skipped
--- both (see the route-eligibility gates in map.lua for the opt-out).
-local function RenderPartyQuestPins()
-    if not pfMap or not pfMap.DeleteNode then
-        return
-    end
-
-    local enabled = pfQuest_config and pfQuest_config["showPartyQuestPins"] == "1"
-
-    -- Cheap signature of what would actually be drawn. Several triggers call
-    -- this function far more often than the rendered pin set ever changes
-    -- (e.g. QUEST_LOG_UPDATE firing on unrelated log activity); tearing down
-    -- and rebuilding identical nodes on every one of those made a pin's
-    -- tooltip flicker/disappear if the player happened to be hovering it.
-    local sigParts = {}
-    if enabled then
-        for playerName, targets in pairs(partyQuestData) do
-            for targetKey, quests in pairs(targets) do
-                for _, data in ipairs(quests) do
-                    if data.targetType and data.targetId and data.questId
-                      and (data.current or 0) < (data.total or 0)
-                      and not LocalPlayerHasObjective(targetKey, data.quest, data.objective) then
-                        table.insert(sigParts, playerName .. ":" .. targetKey .. ":" .. data.quest
-                            .. ":" .. data.current .. "/" .. data.total)
-                    end
-                end
-            end
-        end
-        table.sort(sigParts)
-    end
-    local signature = enabled and table.concat(sigParts, ";") or "off"
-
-    if signature == lastPartyPinSignature then
-        return
-    end
-    lastPartyPinSignature = signature
-
-    pfMap:DeleteNode("PFPARTY")
-
-    if not enabled then
-        return
-    end
-
-    if not pfDatabase or not pfDatabase.SearchMobID or not pfDatabase.SearchObjectID then
-        return
-    end
-
-    for playerName, targets in pairs(partyQuestData) do
-        for targetKey, quests in pairs(targets) do
-            for _, data in ipairs(quests) do
-                if data.targetType and data.targetId and data.questId
-                  and (data.current or 0) < (data.total or 0)
-                  and not LocalPlayerHasObjective(targetKey, data.quest, data.objective) then
-                    -- BuildQuestDescription (called by SearchMobID/SearchObjectID's
-                    -- AddNode) needs QTYPE to produce anything at all -- without
-                    -- it, the route arrow's description line stays blank. Mirror
-                    -- the HDB path's phase/origin-based QTYPE selection here too.
-                    local qtype, item
-                    if data.itemId then
-                        qtype = "ITEM_OBJECTIVE_LOOT"
-                        item = pfDB["items"] and pfDB["items"]["enUS"] and pfDB["items"]["enUS"][data.itemId]
-                    elseif data.targetType == "O" then
-                        qtype = "OBJECT_OBJECTIVE"
-                    else
-                        qtype = "UNIT_OBJECTIVE"
-                    end
-
-                    local meta = {
-                        addon = "PFPARTY",
-                        quest = data.quest,
-                        questid = data.questId,
-                        QTYPE = qtype,
-                        item = item,
-                    }
-
-                    if data.targetType == "U" then
-                        pfDatabase:SearchMobID(data.targetId, meta)
-                    elseif data.targetType == "O" then
-                        pfDatabase:SearchObjectID(data.targetId, meta)
-                    end
                 end
             end
         end
     end
-end
-
--- Incoming party sync data can arrive as many addon messages in one burst.
--- Draw once after the burst instead of deleting and rebuilding the party pin
--- layer for every message.
-local partyPinRefresh = CreateFrame("Frame")
-local function QueuePartyPinRender()
-    partyPinRefresh.elapsed = 0
-    partyPinRefresh:SetScript("OnUpdate", function()
-        this.elapsed = this.elapsed + arg1
-        if this.elapsed >= 0.10 then
-            this:SetScript("OnUpdate", nil)
-            RenderPartyQuestPins()
-        end
-    end)
 end
 
 local function GetClassColor(playerName)
-    if playerName == UnitName("player") then
+    if CanonicalPlayerName(playerName) == CanonicalPlayerName(UnitName("player")) then
         local _, class = UnitClass("player")
         if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
             local classColor = RAID_CLASS_COLORS[class]
@@ -777,7 +936,7 @@ local function GetClassColor(playerName)
 
     for i = 1, GetNumPartyMembers() do
         local name = UnitName("party" .. i)
-        if name == playerName then
+        if CanonicalPlayerName(name) == CanonicalPlayerName(playerName) then
             local _, class = UnitClass("party" .. i)
             if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
                 local classColor = RAID_CLASS_COLORS[class]
@@ -795,7 +954,7 @@ local function BuildQuestGroups(matchedKey)
 
     local localPlayerName = UnitName("player")
     for playerName, targets in pairs(partyQuestData) do
-        if playerName ~= localPlayerName and targets[matchedKey] then
+        if CanonicalPlayerName(playerName) ~= CanonicalPlayerName(localPlayerName) and targets[matchedKey] then
             for _, data in ipairs(targets[matchedKey]) do
                 questGroups[data.quest] = questGroups[data.quest] or {}
 
@@ -861,10 +1020,10 @@ local function HookGameTooltip()
     watcher:SetScript("OnShow", function()
         local unitName = UnitName("mouseover")
         if not unitName then return end
-        if UnitIsPlayer("mouseover") then DebugPrint("HookGameTooltip: skipped, mouseover is a player") return end
+        if UnitIsPlayer("mouseover") then return end
 
         local featureEnabled = pfQuest_config and pfQuest_config["showPartyProgress"] == "1"
-        if not featureEnabled then DebugPrint("HookGameTooltip: skipped, showPartyProgress disabled") return end
+        if not featureEnabled then return end
 
         local hasData = false
         for _, targets in pairs(partyQuestData) do
@@ -873,7 +1032,6 @@ local function HookGameTooltip()
                 break
             end
         end
-        DebugPrint("HookGameTooltip: unit=" .. unitName .. " hasData=" .. tostring(hasData))
         if not hasData then return end
 
         AddQuestGroupLines(GameTooltip, BuildQuestGroups(unitName), function(questName)
@@ -908,7 +1066,6 @@ local function HookPfQuestTooltip()
         local inParty = GetNumPartyMembers() > 0
         local featureEnabled = pfQuest_config and pfQuest_config["showPartyProgress"] == "1"
 
-        DebugPrint("ShowTooltip: targetKey=" .. tostring(targetKey) .. " tooltipName=" .. tostring(tooltipName) .. " metaQuest=" .. tostring(meta["quest"]))
 
         if meta["quest"] and inParty and featureEnabled and targetKey then
             for qid = 1, GetNumQuestLogEntries() do
@@ -961,7 +1118,6 @@ local function HookPfQuestTooltip()
             end
         end
 
-        DebugPrint("ShowTooltip: hasPartyData=" .. tostring(hasPartyData) .. " matchedKey=" .. tostring(matchedKey) .. " mouseoverExists=" .. tostring(UnitExists("mouseover")))
 
         if hasPartyData and matchedKey and not UnitExists("mouseover") then
             local oldquest = meta["quest"]
@@ -969,7 +1125,6 @@ local function HookPfQuestTooltip()
             local ok = pcall(orig_ShowTooltip, self, meta, tooltip)
             meta["quest"] = oldquest
             if not ok then
-                DebugPrint("orig_ShowTooltip failed while suppressing quest line")
             end
 
             AddQuestGroupLines(tooltip, BuildQuestGroups(matchedKey))
@@ -1000,17 +1155,16 @@ local function QueueMappingRefresh(forceFullSync, requestPeers)
             this.requestPeers = nil
             this:SetScript("OnUpdate", nil)
             if GetNumPartyMembers() > 0 then
-                RebuildQuestMappings()
-                if request then
-                    SendAddonMessage("PFQT_SYNC", "1", "PARTY")
-                end
-                ShareQuestData(force)
-                -- myQuestMappings just changed, which is what
-                -- LocalPlayerHasObjective reads: re-evaluate now rather than
-                -- waiting for the next unrelated trigger, so a party star
-                -- drops out (or appears) as soon as the local player's own
-                -- quest state actually does.
-                QueuePartyPinRender()
+                RebuildQuestMappings(function()
+                    if request then SendAddonMessage("PFQT_SYNC", "1", "PARTY") end
+                    ShareQuestData(force)
+                    -- myQuestMappings just changed, which is what
+                    -- LocalPlayerHasObjective reads: re-evaluate now rather
+                    -- than waiting for the next unrelated trigger, so a party
+                    -- star drops out (or appears) as soon as the local player's
+                    -- own quest state actually does.
+                    QueuePartyPinRender()
+                end)
             end
         end
     end)
@@ -1025,9 +1179,12 @@ eventFrame:SetScript("OnEvent", function()
         local prefix, message, channel, sender = arg1, arg2, arg3, arg4
         if prefix == "pfqt" then
             ProcessQuestData(sender, message)
+            -- Covers the synchronous (static Lua fallback) storage path.
+            -- Async HDB results and multipart addon messages share the same
+            -- short render queue, so a full party sync produces one redraw.
             QueuePartyPinRender()
         elseif prefix == "PFQT_SYNC" then
-            if GetNumPartyMembers() > 0 and sender ~= UnitName("player") then
+            if GetNumPartyMembers() > 0 and CanonicalPlayerName(sender) ~= CanonicalPlayerName(UnitName("player")) then
                 QueueMappingRefresh(true)
             end
         end
@@ -1041,9 +1198,7 @@ eventFrame:SetScript("OnEvent", function()
         if GetNumPartyMembers() > 0 then
             QueueMappingRefresh()
             -- Piggyback on this frequently-firing event to pick up a config
-            -- checkbox toggle without a dedicated polling ticker. Cheap: a
-            -- full clear-and-rebuild over what is normally a handful of
-            -- party objective entries.
+            -- checkbox toggle without a dedicated polling ticker.
             QueuePartyPinRender()
         end
     end
@@ -1110,12 +1265,13 @@ configExtenderFrame:SetScript("OnEvent", function()
             if math.mod(timer, 5) == 0 then
                 rebuildRetries = rebuildRetries + 1
                 if pfDB and pfDB["quests"] and pfDB["quests"]["data"] then
-                    RebuildQuestMappings()
-                    if GetNumPartyMembers() > 0 then
-                        SendAddonMessage("PFQT_SYNC", "1", "PARTY")
-                        ShareQuestData(true)
-                    end
-                    RenderPartyQuestPins()
+                    RebuildQuestMappings(function()
+                        if GetNumPartyMembers() > 0 then
+                            SendAddonMessage("PFQT_SYNC", "1", "PARTY")
+                            ShareQuestData(true)
+                        end
+                        RenderPartyQuestPins()
+                    end)
                 end
             end
         end
@@ -1132,6 +1288,19 @@ configExtenderFrame:SetScript("OnEvent", function()
     end)
 end)
 if pfQuest_defconfig and pfQuest_config then ExtendPfQuestConfig() end
+
+SLASH_PFQUEREBUILD1 = "/pfqrebuild"
+SlashCmdList["PFQUEREBUILD"] = function(msg)
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest-turtle:|r Rebuilding quest mappings...")
+    RebuildQuestMappings(function()
+        if GetNumPartyMembers() > 0 then
+            SendAddonMessage("PFQT_SYNC", "1", "PARTY")
+            ShareQuestData(true)
+        end
+        RenderPartyQuestPins()
+        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest-turtle:|r Quest mappings rebuilt.")
+    end)
+end
 
 SLASH_PFQUESTDEBUG1 = "/pfqd"
 SlashCmdList["PFQUESTDEBUG"] = function(msg)
@@ -1186,17 +1355,6 @@ SlashCmdList["PFQUESTDEBUG"] = function(msg)
     end
 end
 
-SLASH_PFQUEREBUILD1 = "/pfqrebuild"
-SlashCmdList["PFQUEREBUILD"] = function(msg)
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest-turtle:|r Rebuilding quest mappings...")
-    RebuildQuestMappings()
-    if GetNumPartyMembers() > 0 then
-        SendAddonMessage("PFQT_SYNC", "1", "PARTY")
-        ShareQuestData(true)
-    end
-    RenderPartyQuestPins()
-    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccpfQuest-turtle:|r Done! Run /pfqd to see results.")
-end
 
 SLASH_PFQUESTTEST1 = "/pfqtest"
 SlashCmdList["PFQUESTTEST"] = function(msg)

@@ -1,3 +1,9 @@
+-- Older standard cores do not expose the optional backend boundary.
+local function HDBEnabled()
+  return pfDatabase and type(pfDatabase.IsHDBEnabled) == "function"
+    and pfDatabase:IsHDBEnabled() or false
+end
+
 local questObjectives = {}
 local nameplateFrames = {}
 local iconFrames = {}
@@ -9,9 +15,13 @@ local SWORD_ICON = "Interface\\AddOns\\pfQuest-turtle\\img\\slay"
 local BAG_ICON = "Interface\\AddOns\\pfQuest-turtle\\img\\loot"
 local NAMEPLATE_BORDER = "Interface\\Tooltips\\Nameplate-Border"
 local NAME_REGION_INDEX = 3
+local objectiveScanGeneration = 0
+local UpdateAllNameplates
 
 local function ScanQuestObjectives()
     questObjectives = {}
+    objectiveScanGeneration = objectiveScanGeneration + 1
+    local generation = objectiveScanGeneration
 
     if not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"] then
         return 0
@@ -92,6 +102,45 @@ local function ScanQuestObjectives()
                 end
             end
         end
+    end
+
+    if HDBEnabled() and type(pfQuestHearthDB.GetQuestTargetsAsync) == "function" then
+        local pending = 0
+        for _ in pairs(activeQuests) do pending = pending + 1 end
+        if pending == 0 then return unresolvedRows end
+
+        for questId, activeObjectives in pairs(activeQuests) do
+            local currentQuestId = questId
+            local currentObjectives = activeObjectives
+            pfQuestHearthDB:GetQuestTargetsAsync(currentQuestId, function(records, err)
+                if generation ~= objectiveScanGeneration then return end
+                if not err and records then
+                    for _, target in ipairs(records) do
+                        if target.phase == "obj" and target.targetKind == "U" and target.title then
+                            for _, activeObj in ipairs(currentObjectives) do
+                                local objective = activeObj.objective
+                                if type(objective) == "string" and (activeObj.current or 0) < (activeObj.total or 0) then
+                                    if target.originKind == "I" and target.itemTitle
+                                      and string.find(objective, target.itemTitle, 1, true) then
+                                        questObjectives[target.title] = BAG_ICON
+                                    elseif (target.originKind or target.targetKind) == "U" then
+                                        local objectiveBase = string.gsub(objective, " slain$", "")
+                                        objectiveBase = string.gsub(objectiveBase, " killed$", "")
+                                        if objectiveBase == target.title or string.find(objective, target.title, 1, true) then
+                                            questObjectives[target.title] = SWORD_ICON
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+                pending = pending - 1
+                if pending == 0 and UpdateAllNameplates then UpdateAllNameplates() end
+            end)
+        end
+        if pending == 0 and UpdateAllNameplates then UpdateAllNameplates() end
+        return unresolvedRows
     end
 
     -- Only inspect active quest IDs. The former title-based full database scan
@@ -338,7 +387,7 @@ local function ScanWorldFrameChildren(frames)
     end
 end
 
-local function UpdateAllNameplates()
+UpdateAllNameplates = function()
     for frame, nameText in pairs(nameplateFrames) do
         if frame:IsShown() then
             OnNameplateShow(frame)

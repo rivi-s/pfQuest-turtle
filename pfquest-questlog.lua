@@ -1,3 +1,9 @@
+-- Older standard cores do not expose the optional backend boundary.
+local function HDBEnabled()
+  return pfDatabase and type(pfDatabase.IsHDBEnabled) == "function"
+    and pfDatabase:IsHDBEnabled() or false
+end
+
 local function ExtendPfQuestConfig()
     -- Check if already added (prevents duplicates)
     for _, entry in pairs(pfQuest_defconfig) do
@@ -68,6 +74,33 @@ questLogFrame:RegisterEvent('QUEST_COMPLETE')
 questLogFrame:RegisterEvent('QUEST_GREETING')
 questLogFrame:RegisterEvent('QUEST_PROGRESS')
 
+-- Diagnostic aid for the quest-dialog automation. Several talk-only quests
+-- have been reported as not auto-completing despite passing static review of
+-- IsGreetingQuestReady/SelectAutoQuestDialog; this prints what each selector
+-- actually observes so a live report can include real telemetry instead of
+-- guesswork. Opt-in and silent by default.
+local hdbAutoDebugEnabled = false
+local function DebugAuto(message)
+    if not hdbAutoDebugEnabled then return end
+    DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccHDB auto:|r " .. message)
+end
+
+SLASH_HDBAUTO1 = "/hdbauto"
+SlashCmdList["HDBAUTO"] = function(message)
+    message = string.lower(message or "")
+    if message == "on" or (message == "" and not hdbAutoDebugEnabled) then
+        hdbAutoDebugEnabled = true
+        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccHDB auto:|r ON")
+    elseif message == "off" or message == "" then
+        hdbAutoDebugEnabled = false
+        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccHDB auto:|r OFF")
+    elseif message == "status" then
+        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccHDB auto:|r " .. (hdbAutoDebugEnabled and "ON" or "OFF"))
+    else
+        DEFAULT_CHAT_FRAME:AddMessage("|cff33ffccHDB auto:|r use /hdbauto on, /hdbauto off, or /hdbauto status")
+    end
+end
+
 -- Selecting a quest changes the dialog asynchronously. Repeated right-clicks
 -- can emit another greeting/gossip event before that transition completes.
 -- Use a short debounce instead of persistent state: some Turtle dialogs do not
@@ -103,6 +136,16 @@ postRewardRefresh:SetScript("OnUpdate", function()
     if pfQuest and pfQuest.UpdateQuestlog then
         pfQuest:UpdateQuestlog()
         pfQuest.updateQuestLog = true
+        -- Do not also force the complete available-quest-giver rescan here.
+        -- A completed quest already gets the cheap, correctly-scoped refresh
+        -- from quest.lua's own REMOVE handling (RefreshCompletedQuestGiversHDB),
+        -- and skill/level unlocks already set this flag from their own events.
+        -- Forcing it again on every automated turn-in queued an unfiltered
+        -- HDB scan of every eligible quest giver (tens of thousands of rows)
+        -- 0.35s after each reward, which reads as a hitch once auto-complete
+        -- chains several turn-ins back to back.
+    end
+    if pfQuest and not HDBEnabled() then
         pfQuest.updateQuestGivers = true
     end
     if pfMap then
@@ -328,10 +371,14 @@ local function SelectFirstCompletedActiveQuest()
     end
 
     local numActiveQuests = GetNumActiveQuests()
+    DebugAuto("active quest list: count=" .. tostring(numActiveQuests))
     for i = 1, numActiveQuests do
         local title, complete = GetActiveTitle(i)
-        if title and (complete == true or IsGreetingQuestReady(title)) then
+        local ready = title and (complete == true or IsGreetingQuestReady(title))
+        DebugAuto("active[" .. i .. "] title=" .. tostring(title) .. " ready=" .. tostring(ready and true or false))
+        if title and ready then
             SelectActiveQuest(i)
+            DebugAuto("SelectFirstCompletedActiveQuest matched: " .. title)
             return true
         end
     end
@@ -358,8 +405,12 @@ local function SelectFirstCompletedGossipActiveQuest()
             -- for client variants that omit the flag.
             local hasCompleteFlag = type(active[i + 3]) == "boolean"
             local isComplete = hasCompleteFlag and active[i + 3] or false
-            if isComplete or IsGreetingQuestReady(active[i]) then
+            local greetingReady = IsGreetingQuestReady(active[i])
+            DebugAuto("gossip-active[" .. questIndex .. "] title=" .. tostring(active[i])
+                .. " isComplete=" .. tostring(isComplete) .. " greetingReady=" .. tostring(greetingReady))
+            if isComplete or greetingReady then
                 SelectGossipActiveQuest(questIndex)
+                DebugAuto("SelectFirstCompletedGossipActiveQuest matched: " .. tostring(active[i]))
                 return true
             end
             if hasCompleteFlag then
@@ -381,10 +432,24 @@ local function SelectAutoQuestDialog()
     -- Turtle can expose either list family for the same NPC and can populate
     -- them on different frames. Always inspect both, prefer ready turn-ins,
     -- and accept an available quest only when no ready turn-in is visible.
-    return SelectFirstCompletedActiveQuest()
-        or SelectFirstCompletedGossipActiveQuest()
-        or SelectFirstAvailableQuest()
-        or SelectFirstGossipAvailableQuest()
+    if SelectFirstCompletedActiveQuest() then
+        DebugAuto("SelectAutoQuestDialog: matched SelectFirstCompletedActiveQuest")
+        return true
+    end
+    if SelectFirstCompletedGossipActiveQuest() then
+        DebugAuto("SelectAutoQuestDialog: matched SelectFirstCompletedGossipActiveQuest")
+        return true
+    end
+    if SelectFirstAvailableQuest() then
+        DebugAuto("SelectAutoQuestDialog: matched SelectFirstAvailableQuest")
+        return true
+    end
+    if SelectFirstGossipAvailableQuest() then
+        DebugAuto("SelectAutoQuestDialog: matched SelectFirstGossipAvailableQuest")
+        return true
+    end
+    DebugAuto("SelectAutoQuestDialog: no candidate matched")
+    return false
 end
 
 -- Turtle may populate normal or gossip quest lists shortly after the initial
@@ -453,6 +518,16 @@ questLogFrame:SetScript("OnEvent", function()
             return
         end
 
+        -- A greeting opens a new NPC dialog, distinct from whatever reward
+        -- guard applied to a previously closed one. Quests with zero
+        -- leaderboard objectives (the pure talk/report case) can jump
+        -- straight from this greeting to QUEST_COMPLETE without an
+        -- intervening QUEST_PROGRESS, so QUEST_PROGRESS's own reset below
+        -- never runs for them. Leaving rewardedCurrentDialog set from an
+        -- earlier, unrelated completion this session would then silently
+        -- swallow this NPC's very real reward.
+        rewardedCurrentDialog = false
+
         -- Selecting a turn-in opens the completion dialog on the next client
         -- update. QUEST_COMPLETE below then safely claims a no-choice reward.
         if not SelectAutoQuestDialog() then
@@ -463,6 +538,11 @@ questLogFrame:SetScript("OnEvent", function()
 
     if event == "QUEST_DETAIL" then
         EndInteraction()
+        -- Accepting a follow-up is a new dialog even when an object-driven
+        -- chain emits neither QUEST_GREETING nor GOSSIP_SHOW. Clear the prior
+        -- reward guard here so a later direct QUEST_COMPLETE is not mistaken
+        -- for a duplicate from the preceding quest (for example quest 285).
+        rewardedCurrentDialog = false
         if not IsTrivialQuest() then
             AcceptQuest()
         end
@@ -473,6 +553,11 @@ questLogFrame:SetScript("OnEvent", function()
             RetryAutoQuestDialog()
             return
         end
+
+        -- See the matching comment under QUEST_GREETING: this may be a new,
+        -- unrelated completion and must not inherit the previous dialog's
+        -- reward guard.
+        rewardedCurrentDialog = false
 
         if not SelectAutoQuestDialog() then
             EndInteraction()
