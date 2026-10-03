@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["items"]["enUS-turtle"] = {
   [1] = "Spring White Rabbit Headband",
   [2] = "Ebon Gryphon",

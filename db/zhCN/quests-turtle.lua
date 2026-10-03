@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["quests"]["zhCN-turtle"] = {
   [1] = "_",
   [8] = {

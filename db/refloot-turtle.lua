@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["refloot"]["data-turtle"] = {
   [1015] = "_",
   [1016] = "_",

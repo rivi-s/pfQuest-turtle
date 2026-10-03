@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["units"]["ptBR-turtle"] = {
   [1] = "Ponto de Referência (Somente Mestres do Jogo podem ver)",
   [2] = "Spawn Point (Somente o Gm Pode Vê-Lo)",

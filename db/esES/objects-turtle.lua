@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["objects"]["esES-turtle"] = {
   [1] = "EVENTO DE ROLEPLAY EN CURSO",
   [2] = "Piano de Juguete",

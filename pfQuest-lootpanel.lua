@@ -1,9 +1,3 @@
--- Older standard cores do not expose the optional backend boundary.
-local function HDBEnabled()
-  return pfDatabase and type(pfDatabase.IsHDBEnabled) == "function"
-    and pfDatabase:IsHDBEnabled() or false
-end
-
 local GRID_COLUMNS = 6
 local ICON_SIZE = 26
 local ICON_PADDING = 6
@@ -20,8 +14,6 @@ local RANK_INFO = {
 }
 
 local unitDropsCache = {}
-local unitDropsPending = {}
-local unitDropsHDBFailed = {}
 
 -- fixed cutoff for the optional "hide world drops" setting: items/pools
 -- shared by more units than this are treated as generic world-drops
@@ -37,22 +29,6 @@ local function BuildDropsForUnit(unitid)
   unitid = tonumber(unitid) or unitid
   local cached = unitDropsCache[unitid]
   if cached then return cached end
-
-  if not unitDropsHDBFailed[unitid] and HDBEnabled()
-    and type(pfQuestHearthDB.GetUnitDropsAsync) == "function" then
-    if unitDropsPending[unitid] then return nil end
-    unitDropsPending[unitid] = true
-    local accepted = pfQuestHearthDB:GetUnitDropsAsync(unitid, function(drops, err)
-      unitDropsPending[unitid] = nil
-      if err or not drops then unitDropsHDBFailed[unitid] = true
-      else unitDropsCache[unitid] = drops end
-      if pfMap then pfMap.queue_update = GetTime() end
-      if pfQuestLoot and pfQuestLoot.RefreshPinned then pfQuestLoot.RefreshPinned(unitid) end
-    end)
-    if accepted then return nil end
-    unitDropsPending[unitid] = nil
-    unitDropsHDBFailed[unitid] = true
-  end
 
   local items = pfDB["items"]["data"]
   local refloot = pfDB["refloot"]["data"]
@@ -111,8 +87,8 @@ local function GetItemVisualInfo(itemid)
   return quality, sixth, tenth
 end
 
-local function PassesCategoryFilters(itemid, hdbQuestStarter)
-  if hdbQuestStarter == nil then BuildQuestStarterIndex() end
+local function PassesCategoryFilters(itemid)
+  BuildQuestStarterIndex()
 
   local showEquip = not pfQuest_config or pfQuest_config["lootPanelShowEquip"] ~= "0"
   local showQuestItems = not pfQuest_config or pfQuest_config["lootPanelShowQuestItems"] ~= "0"
@@ -125,7 +101,7 @@ local function PassesCategoryFilters(itemid, hdbQuestStarter)
   local isEquip = itemType == "Armor" or itemType == "Weapon"
 
   if isEquip then return showEquip end
-  if hdbQuestStarter == true or (hdbQuestStarter == nil and questStarterItems[itemid]) then return showQuestStarters end
+  if questStarterItems[itemid] then return showQuestStarters end
   if itemType == "Quest" then return showQuestItems end
   if itemType == "Recipe" then return showRecipes end
   if quality == 0 then return showGrey end
@@ -147,7 +123,7 @@ local function GetVisibleDrops(unitid)
     local passesRef = showReference or not drop.isRef
     local passesChance = showUnknownChance or (drop.chance and drop.chance > 0)
     local passesWorldDrop = not hideWorldDrops or not drop.sourceCount or drop.sourceCount <= WORLD_DROP_THRESHOLD
-    if passesRef and passesChance and passesWorldDrop and PassesCategoryFilters(drop.item, drop.isQuestStarter) then
+    if passesRef and passesChance and passesWorldDrop and PassesCategoryFilters(drop.item) then
       table.insert(visible, drop)
     end
   end
@@ -268,8 +244,7 @@ local function GetButton(index)
     local linkOk = name and pcall(lootTooltip.SetHyperlink, lootTooltip, "item:" .. button.itemid .. (pfQuestCompat.itemsuffix or ""))
 
     if not linkOk then
-      local localName = button.itemTitle
-      if (not localName or localName == "") and pfDB["items"]["enUS"] then localName = pfDB["items"]["enUS"][button.itemid] end
+      local localName = pfDB["items"]["enUS"] and pfDB["items"]["enUS"][button.itemid]
       lootTooltip:SetText(name or ((localName and localName ~= "") and localName or ("Item #" .. button.itemid)), 1, 1, 1)
       if not name then
         lootTooltip:AddLine("Item data unavailable", 0.6, 0.6, 0.6)
@@ -313,13 +288,11 @@ pfQuestLoot = {}
 
 local pinned = false
 local pinnedUnitId = nil
-local pinnedNodeFrame = nil
 
 function pfQuestLoot.Hide()
   pfQuestLoot.lastHideTrace = pfQuestLoot.lastHideTrace or "direct"
   pinned = false
   pinnedUnitId = nil
-  pinnedNodeFrame = nil
   panel.openedFromWorldMap = nil
   panel:Hide()
 end
@@ -353,7 +326,6 @@ local function PopulateGrid(unitid, topOffset)
     local button = GetButton(i)
 
     button.itemid = drop.item
-    button.itemTitle = drop.title
     button.chance = drop.chance
 
     if drop.chance and drop.chance > 0 then
@@ -422,8 +394,6 @@ end
 
 function pfQuestLoot.HasDrops(unitid)
   local drops = unitid and GetVisibleDrops(unitid)
-  unitid = tonumber(unitid) or unitid
-  if unitid and unitDropsPending[unitid] then return true end
   return drops ~= nil and table.getn(drops) > 0
 end
 
@@ -453,7 +423,11 @@ function pfQuestLoot.ShowPinned(nodeFrame)
     return
   end
 
-  local unitData = pfDB["units"]["data"][unitid] or {}
+  local unitData = pfDB["units"]["data"][unitid]
+  if not unitData then
+    pfQuestLoot.lastShowTrace = "no unit data"
+    return
+  end
 
   local headerLines = {
     "|cff4dffcc" .. (nodeFrame.spawn or UNKNOWN) .. "|r",
@@ -492,7 +466,6 @@ function pfQuestLoot.ShowPinned(nodeFrame)
 
   pinned = true
   pinnedUnitId = unitid
-  pinnedNodeFrame = nodeFrame
   -- Base pfQuest can reparent world-map pins to WorldMapDetailFrame on the
   -- enhanced zone-map surface.  The pin retains its worldmap flag, while its
   -- parent is no longer WorldMapButton; use that flag so the loot panel stays
@@ -524,13 +497,6 @@ function pfQuestLoot.ShowPinned(nodeFrame)
   panel:Show()
   panel:Raise()
   pfQuestLoot.lastShowTrace = "shown"
-end
-
-function pfQuestLoot.RefreshPinned(unitid)
-  if not pinned or pinnedUnitId ~= unitid or not pinnedNodeFrame then return end
-  local nodeFrame = pinnedNodeFrame
-  pinned = false
-  pfQuestLoot.ShowPinned(nodeFrame)
 end
 
 local pendingQualityElapsed = 0

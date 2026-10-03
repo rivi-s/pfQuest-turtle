@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["quests-itemreq"]["data-turtle"] = {
   [4702] = {
     [-3000687] = "4954",

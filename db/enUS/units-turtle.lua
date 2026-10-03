@@ -1,4 +1,3 @@
-if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["units"]["enUS-turtle"] = {
   [4] = "Snowy Gryphon",
   [5] = "Ebon Gryphon",

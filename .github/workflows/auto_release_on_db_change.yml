@@ -21,7 +21,7 @@ jobs:
       - name: Create pfQuest-turtle zip
         run: |
           mkdir pfQuest-turtle
-          rsync -av --exclude='.git' --exclude='.github' --exclude='provider' --exclude='tests' --exclude='*.md' --exclude='LICENSE' --exclude='.gitattributes' --exclude='pfQuest-turtle' . pfQuest-turtle/
+          rsync -av --exclude='.git' --exclude='.github' --exclude='*.md' --exclude='LICENSE' --exclude='.gitattributes' --exclude='pfQuest-turtle' . pfQuest-turtle/
           zip -r pfQuest-turtle.zip pfQuest-turtle/
 
       - name: Create Versioned Release and Upload Asset

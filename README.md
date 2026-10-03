@@ -13,9 +13,3 @@ If you wish to contribute, please feel free to send a [Pull Requests](https://gi
 3. Rename the folder "pfQuest-turtle-master" to "pfQuest-turtle"
 4. Copy "pfQuest-turtle" into Wow-Directory\Interface\AddOns
 5. Restart Wow
-
-
-### Optional HearthDB support
-
-The standard download still works with its bundled Lua database. HearthDB is an
-optional release installation; see [HDB.md](HDB.md) for package requirements.
