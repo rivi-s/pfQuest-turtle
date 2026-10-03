@@ -707,6 +707,8 @@ pfMap.NodeEnter = function()
     return
   end
 
+  if pfMap.BeginNodeTooltip then pfMap:BeginNodeTooltip(this) end
+
   local hasItemStart = false
   local itemStartMeta = nil
   for title, meta in pairs(this.node) do

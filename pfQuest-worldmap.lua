@@ -566,6 +566,10 @@ local function CreateContinentPin(index)
     if not continentPins[index] then
         local pin = CreateFrame("Button", "pfQuestContinentPin" .. index, WorldMapButton)
         pin.worldmap = true
+        pin:SetScript("OnHide", function()
+            if pfMap.ReleaseNodeTooltip then pfMap:ReleaseNodeTooltip(this) end
+            this.wasMouseOver = false
+        end)
         pin.tex = pin:CreateTexture(nil, "BACKGROUND")
         pin.tex:SetAllPoints(pin)
         pin.pic = pin:CreateTexture(nil, "BORDER")
@@ -586,8 +590,12 @@ local function HideContinentPin(pin)
     if pin.wasMouseOver then
         -- Programmatic hiding does not set the legacy global `this` to the
         -- pin, so pfMap.NodeLeave cannot reliably choose WorldMapTooltip.
-        WorldMapTooltip:Hide()
-        pfMap.highlight = nil
+        if pfMap.ReleaseNodeTooltip then
+            pfMap:ReleaseNodeTooltip(pin)
+        else
+            WorldMapTooltip:Hide()
+            pfMap.highlight = nil
+        end
         pin.wasMouseOver = false
     end
     pin:Hide()
