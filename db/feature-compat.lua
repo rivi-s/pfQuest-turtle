@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 -- Retain quest records unique to the feature branch when importing the new database.
 pfDB["quests"]["data-turtle"] = pfDB["quests"]["data-turtle"] or {}
 pfDB["quests"]["data-turtle"][8595] = { ["end"] = { ["U"] = { 15503 } }, ["event"] = 164, ["lvl"] = 60, ["min"] = 60, ["obj"] = { ["I"] = { 21229 } }, ["start"] = { ["U"] = { 15503 } } }

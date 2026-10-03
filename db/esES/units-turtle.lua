@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["units"]["esES-turtle"] = {
   [1] = "Punto de Ruta (Solo Visible por GM)",
   [2] = "Punto de Aparición (Solo Visible por GM)",

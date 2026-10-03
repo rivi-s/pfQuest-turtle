@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["units"]["zhCN-turtle"] = {
   [1] = "路径点(只有GM可见)",
   [2] = "重生点（仅GM可见）",

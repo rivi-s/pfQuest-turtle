@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["items"]["esES-turtle"] = {
   [1] = "Diadema de Conejo Blanco de Primavera",
   [2] = "Grifo Ébano",

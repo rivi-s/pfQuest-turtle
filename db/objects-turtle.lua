@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["objects"]["data-turtle"] = {
   [1] = {
     ["coords"] = {},

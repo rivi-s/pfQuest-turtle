@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["objects"]["zhCN-turtle"] = {
   [1] = "进行中的角色扮演活动",
   [2] = "玩具钢琴",

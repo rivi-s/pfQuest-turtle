@@ -45,3 +45,9 @@ sqlite3 data/pfquest-turtle.sqlite 'PRAGMA integrity_check;'
 Generated `.sqlite` and staging `.tsv` files are ignored by Git. Distribute the
 database as a release artifact or package output rather than committing it to
 source history.
+
+## Startup database selection
+
+The unified core selects HearthDB before loading database tables on Vanilla enUS clients when the matching enabled companion database opens successfully. Turtle requires pfQuest-HearthDB-turtle; vanilla requires pfQuest-HearthDB. Missing native APIs, a missing or disabled companion, or an open failure selects the full Lua database. Restart or reload after changing companions. `/db backend` reports the selection and retained Lua table counts.
+
+The fixed addon manifests still make WoW parse the Lua files, but their early guards prevent large data tables from being constructed in HDB mode. This does not eliminate parsing cost. The existing lean HDB packages still omit Lua database entries and therefore do not gain a complete Lua fallback; use the unified standard folders for both modes.

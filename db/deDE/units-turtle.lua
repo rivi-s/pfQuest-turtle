@@ -1,3 +1,4 @@
+if pfQuestBackend and pfQuestBackend.mode == "hdb" then return end
 pfDB["units"]["deDE-turtle"] = {
   [1] = "Waypoint",
   [2] = "Spawnpoint",
