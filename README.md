@@ -13,3 +13,9 @@ If you wish to contribute, please feel free to send a [Pull Requests](https://gi
 3. Rename the folder "pfQuest-turtle-master" to "pfQuest-turtle"
 4. Copy "pfQuest-turtle" into Wow-Directory\Interface\AddOns
 5. Restart Wow
+
+## Author credits
+
+Original pfQuest-turtle author: Shagu. Existing contributors are listed in the addon TOC.
+
+Rivi maintains this fork and contributes ongoing fixes, features, quest database corrections, and HearthDB integration.

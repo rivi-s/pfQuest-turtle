@@ -1,5 +1,13 @@
 # pfQuest Turtle patch notes
 
+## 1.0.32 — 2026-10-04
+
+- Removed an incorrect prerequisite that hid Gahz'rilla (2770) from available quest markers.
+- Added Display Repeatable Quests [Beta] beneath the event/daily option, off by default. Known repeatable offers use blue exclamation marks and retain existing quest requirements. Coverage and accept/turn-in refresh are still being tested; please report missing quests with their name and ID.
+- Fixed map and minimap tooltips staying visible after leaving a marker.
+- Added profession skill requirements and corrected faction-specific Goldsmithing prerequisites.
+- Added this changelog and one update reminder per installed version.
+
 ## 1.0.31 — 2026-10-02
 
 - Reduced party quest synchronization work to prevent group joins and quest turn-ins from stuttering.

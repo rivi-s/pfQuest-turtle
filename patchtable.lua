@@ -443,6 +443,11 @@ local function AddItemDropNodes(id, item, meta, maps, quests, items, units, obje
       item_meta["layer"] = 2
     end
 
+    if pfDB.quests.repeatable and pfDB.quests.repeatable[id] then
+      item_meta["vertex"] = { .2, .8, 1 }
+      item_meta["layer"] = 2
+    end
+
     item_meta["spawn"] = pfDB["items"]["loc"][item] or UNKNOWN
     item_meta["spawnid"] = item
     item_meta["item"] = pfDB["items"]["loc"][item]
@@ -501,8 +506,10 @@ local function ItemDropQuestFilter(id, plevel, pclass, prace)
 
   -- hide active quest
   if pfQuest.questlog[id] then return end
-  -- hide completed quests
-  if pfQuest_history[id] then return end
+  local repeatable = pfDB.quests.repeatable and pfDB.quests.repeatable[id]
+  if repeatable and pfQuest_config["showrepeatable"] ~= "1" then return end
+  -- Repeatable quests remain available after a prior turn-in.
+  if pfQuest_history[id] and not repeatable then return end
   -- hide broken quests without names
   if not pfDB.quests.loc[id] or not pfDB.quests.loc[id].T then return end
 

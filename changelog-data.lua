@@ -2,8 +2,9 @@
 if not pfQuestChangelog then return end
 -- Published history and explicitly labeled development notes.
 pfQuestChangelog:Register("pfQuest-turtle", {
-{ ["version"] = "Next update - testing", ["date"] = "2026-10-03", ["notes"] = {
+{ ["version"] = "1.0.32", ["date"] = "2026-10-04", ["notes"] = {
 "Removed an incorrect prerequisite that hid Gahz'rilla (2770) from available quest markers.",
+"Added Display Repeatable Quests [Beta] beneath the event/daily option, off by default. Known repeatable offers use blue exclamation marks and retain existing quest requirements. Coverage and accept/turn-in refresh are still being tested; please report missing quests with their name and ID.",
 "Fixed map and minimap tooltips staying visible after leaving a marker.",
 "Added profession skill requirements and corrected faction-specific Goldsmithing prerequisites.",
 "Added this changelog and one update reminder per installed version."
