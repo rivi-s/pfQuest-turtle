@@ -30,3 +30,5 @@ pfQuest-nameplates.lua
 pfQuest-announce.lua
 pfQuest-partyprogress.lua
 pfQuest-config-resize.lua
+
+changelog-data.lua
