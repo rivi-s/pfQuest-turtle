@@ -3,6 +3,7 @@ if not pfQuestChangelog then return end
 -- Published history and explicitly labeled development notes.
 pfQuestChangelog:Register("pfQuest-turtle", {
 { ["version"] = "Next update - testing", ["date"] = "2026-10-03", ["notes"] = {
+"Removed an incorrect prerequisite that hid Gahz'rilla (2770) from available quest markers.",
 "Fixed map and minimap tooltips staying visible after leaving a marker.",
 "Added profession skill requirements and corrected faction-specific Goldsmithing prerequisites.",
 "Added this changelog and one update reminder per installed version."
