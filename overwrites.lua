@@ -520,3 +520,132 @@ pfDB.quests.repeatable = {
   [60032] = true, [60033] = true, [60034] = true, [60035] = true, [60036] = true, [80219] = true, [80352] = true, [80353] = true,
   [80369] = true, [80374] = true, [80379] = true, [80386] = true, [80740] = true,
 }
+
+-- Book of the Ancients: use Gem of the Serpent at the Serpent Statue to
+-- summon Lord Kragaru. The scripted interaction was absent from item targets.
+local serpentQuest = pfDB.quests["data-turtle"] and pfDB.quests["data-turtle"][6027]
+  or pfDB.quests.data and pfDB.quests.data[6027]
+if type(serpentQuest) == "table" then
+  serpentQuest.obj = serpentQuest.obj or {}
+  serpentQuest.obj.IR = { 15766 }
+end
+pfDB["quests-itemreq"]["data-turtle"] = pfDB["quests-itemreq"]["data-turtle"] or {}
+pfDB["quests-itemreq"]["data-turtle"][15766] = { [-177673] = 19470 }
+
+-- Direct spell_script_target type 0 entries are gameobjects, not creatures.
+-- Preserve other item requirements while correcting the mis-typed links.
+local objectItemTargets = {
+  { 6637, 113791, 8899 }, -- Water Sapta -> Brazier of Everfount
+  { 6637, 101750, 8899 }, -- Water Sapta -> Shaman Shrine
+  { 6635, 100028, 8202 }, -- Earth Sapta -> Shaman Shrine
+  { 6635, 101749, 8202 }, -- Earth Sapta -> Shaman Shrine
+  { 6931, 92252, 8712 }, -- Moldy Tome -> Strahad's Summoning Circle
+  { 6997, 92252, 8712 }, -- Tattered Manuscript -> Strahad's Summoning Circle
+  { 9466, 144050, 11757 }, -- Orwin's Shovel -> Gordunni Trap
+  { 12287, 175124, 15958 }, -- Collectronic Module -> Rookery Egg
+  { 17696, 178905, 21885 }, -- Filled Cerulean Vial -> Vylestem Vine
+  { 17696, 178908, 21885 }, -- Filled Cerulean Vial -> Vylestem Vine
+  { 6999, 92252, 8712 }, -- Tome of the Cabal -> Strahad's Summoning Circle
+}
+local requirementDB = pfDB["quests-itemreq"]
+requirementDB["data-turtle"] = requirementDB["data-turtle"] or {}
+for _, link in ipairs(objectItemTargets) do
+  local itemID, objectID, spellID = link[1], link[2], link[3]
+  local requirements = requirementDB["data-turtle"][itemID]
+  if type(requirements) ~= "table" then
+    requirements = {}
+    for target, spell in pairs(requirementDB.data and requirementDB.data[itemID] or {}) do
+      requirements[target] = spell
+    end
+    requirementDB["data-turtle"][itemID] = requirements
+  end
+  requirements[objectID] = nil
+  requirements[-objectID] = spellID
+end
+
+
+-- Verified RavenCraft objective links; keep existing starts, turn-ins and gates.
+local verifiedObjectives = {
+  [41905] = { I = { 42072 } }, -- Eight Refugee Supplies from Stolen Crates.
+  [41955] = { I = { 42215, 42225, 42226, 42227 } }, -- Hydra Leather and three legendary hides.
+  [41935] = { I = { 42179 } }, -- Ten essences; the retained starting tablet is not a farming target.
+  [41940] = { I = { 42207, 42208, 42209, 42210 } }, -- Three cores of each element.
+  [40252] = { O = { 2010849 } }, -- Activate the Way-Stone of Eldarath.
+  [80341] = { IR = { 91774 } }, -- Use the supplied rod to tame a Snow Leopard.
+  [41906] = { O = { 3000203 } }, -- Free the captives from the Shadowforge Cage.
+  [42030] = { I = { 42308, 42309 } }, -- Obtain information from both informants.
+  [42032] = { I = { 42312 } }, -- Freidhelm's blueprint half.
+  [42056] = { U = { 63199 } }, -- Heal and fortify Brave Greenhorn.
+  [41963] = { I = { 42238, 42239, 9197 } },
+  [41986] = { I = { 12218 } }, -- Crafted Monster Omelets.
+  [41987] = { I = { 22527 } },
+}
+for questID, targets in pairs(verifiedObjectives) do
+  local quest = pfDB.quests["data-turtle"] and pfDB.quests["data-turtle"][questID]
+    or pfDB.quests.data and pfDB.quests.data[questID]
+  if type(quest) == "table" then
+    quest.obj = quest.obj or {}
+    for kind, ids in pairs(targets) do
+      quest.obj[kind] = ids
+    end
+  end
+end
+-- Positive item-requirement targets are creatures; 44020 is Tame Snow Leopard.
+requirementDB["data-turtle"][91774] = { [1201] = 44020 }
+
+
+-- Garrison Armory: additional verified server spawns inside Blasted Lands.
+local garrisonSpawns = {
+  [60838] = {
+    { 62.55, 4.61, 4, 300 },
+    { 57.45, 4.79, 4, 300 },
+    { 61.25, 3.63, 4, 300 },
+    { 59.59, 2.54, 4, 300 },
+    { 59.15, 3.86, 4, 300 },
+    { 63.91, 3.23, 4, 300 },
+  },
+  [60839] = {
+    { 71.39, 8.27, 4, 300 },
+    { 66.36, 3.38, 4, 300 },
+    { 66.46, 1.76, 4, 300 },
+    { 61.69, 2.69, 4, 300 },
+    { 61.49, 5.88, 4, 300 },
+    { 62.27, 4.42, 4, 300 },
+    { 70.55, 0.92, 4, 300 },
+    { 68.11, 5.36, 4, 300 },
+  },
+  [60840] = {
+    { 71.31, 5.53, 4, 300 },
+    { 65.45, 0.3, 4, 300 },
+    { 57.68, 1.27, 4, 300 },
+    { 59.25, 3.06, 4, 300 },
+    { 60.76, 3.19, 4, 300 },
+    { 64.56, 5.93, 4, 300 },
+  },
+  [60842] = {
+    { 62.79, 2.78, 4, 300 },
+    { 71.92, 4.77, 4, 300 },
+    { 67.01, 4.01, 4, 300 },
+    { 67.47, 0.83, 4, 300 },
+    { 70.05, 3.66, 4, 300 },
+    { 71.28, 3.1, 4, 300 },
+    { 60.72, 0.56, 4, 300 },
+    { 56.77, 2.51, 4, 300 },
+    { 56.25, 4.29, 4, 300 },
+    { 58.72, 4.51, 4, 300 },
+    { 54.89, 4.39, 4, 300 },
+    { 55.6, 2.47, 4, 300 },
+    { 70.08, 2.2, 4, 300 },
+    { 58.29, 3.82, 4, 300 },
+  },
+}
+for unitID, locations in pairs(garrisonSpawns) do
+  local unit = pfDB.units["data-turtle"] and pfDB.units["data-turtle"][unitID]
+    or pfDB.units.data and pfDB.units.data[unitID]
+  if type(unit) == "table" then
+    unit.coords = unit.coords or {}
+    for _, location in ipairs(locations) do
+      table.insert(unit.coords, location)
+    end
+  end
+end
