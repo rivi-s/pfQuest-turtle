@@ -13,6 +13,9 @@ local NAME_REGION_INDEX = 3
 local function ScanQuestObjectives()
     questObjectives = {}
 
+    -- Disabling icons must also disable database/objective work, not just drawing.
+    if pfQuest_config and pfQuest_config["nameplatesEnabled"] == "0" then return 0 end
+
     if not pfDB or not pfDB["quests"] or not pfDB["quests"]["data"] then
         return 0
     end
@@ -507,6 +510,15 @@ local function QueueObjectiveScan()
     objectiveScan:SetScript("OnUpdate", function()
         this.elapsed = this.elapsed + arg1
         if this.elapsed >= 0.5 then
+            -- The core deliberately waits for the login quest-log burst to settle.
+            -- Do not resolve the same rows ahead of that scan or while its queue
+            -- is draining; reuse the canonical IDs once the core is ready.
+            if not pfDatabase or not pfDatabase.localized
+                or (pfQuest.lock and pfQuest.lock > GetTime())
+                or (pfQuest.queueCount or 0) > 0 or pfQuest.updateQuestLog then
+                this.elapsed = 0
+                return
+            end
             this.attempts = this.attempts + 1
             local unresolvedRows = ScanQuestObjectives()
             UpdateAllNameplates()

@@ -1089,6 +1089,11 @@ function pfMap:UpdateNodes()
 
     original_UpdateNodes(self)
 
+    -- The core still refreshes tracker and route state while the map is hidden.
+    -- Projection frames are only needed on an open World Map; the standalone
+    -- quest-update driver also calls this wrapper during login and quest changes.
+    if not WorldMapFrame:IsShown() then return end
+
     -- WORLD_MAP_UPDATE and the polling fallback can both request the same
     -- view. Suppress duplicate redraws that arrive immediately together.
     if continentRenderLastKey == viewKey and GetTime() - continentRenderLastAt < 0.5 then return end
