@@ -1,5 +1,14 @@
 # pfQuest Turtle patch notes
 
+## 1.0.33 — 2026-10-06
+
+- Disabled nameplate icons now also disable objective scanning; enabled scans wait for the core login scan.
+- Skipped hidden city and continent projection work during quest updates.
+- Added the Survival225 display gate for Don't tell the Others.
+- Restored object starter/turn-in links for Q3844 and Jarkal Mossmeld turn-in for Q41734.
+- Added the Alliance restriction for Brangar's Journal (Q41873).
+- Login freeze resolution remains unconfirmed pending player testing.
+
 ## 1.0.32 — 2026-10-04
 
 - Removed an incorrect prerequisite that hid Gahz'rilla (2770) from available quest markers.
