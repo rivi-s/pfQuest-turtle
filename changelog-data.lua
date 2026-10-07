@@ -2,6 +2,10 @@
 if not pfQuestChangelog then return end
 -- Published history and explicitly labeled development notes.
 pfQuestChangelog:Register("pfQuest-turtle", {
+{ ["version"] = "1.0.34", ["date"] = "2026-10-06", ["notes"] = {
+"Fixed Trees & Wood tracking errors in the non-HDB edition.",
+"Use with pfQuest 8.0.47 for the login-stall fix; tracker progress and tree tracking confirmed in game."
+} },
 { ["version"] = "1.0.33", ["date"] = "2026-10-06", ["notes"] = {
 "Disabled nameplate icons now also disable objective scanning; enabled scans wait for the core login scan.",
 "Skipped hidden city and continent projection work during quest updates.",

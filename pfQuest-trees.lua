@@ -22,6 +22,8 @@ local treeTextures = {
 }
 
 local function ResolveTreeIcons()
+  -- The Lua core uses title icons; the HDB core also uses object-ID icons.
+  pfDatabase.iconsByID = pfDatabase.iconsByID or {}
   for texture, objects in pairs(treeTextures) do
     for _, objectID in pairs(objects) do
       pfDatabase.iconsByID["O" .. objectID] = texture

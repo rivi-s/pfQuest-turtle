@@ -1,5 +1,10 @@
 # pfQuest Turtle patch notes
 
+## 1.0.34 — 2026-10-06
+
+- Fixed Trees & Wood tracking errors in the non-HDB edition.
+- Use with pfQuest 8.0.47 for the login-stall fix; tracker progress and tree tracking confirmed in game.
+
 ## 1.0.33 — 2026-10-06
 
 - Disabled nameplate icons now also disable objective scanning; enabled scans wait for the core login scan.
