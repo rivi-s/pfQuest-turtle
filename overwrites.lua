@@ -676,3 +676,22 @@ pfDB.quests.requireClientCompletion = pfDB.quests.requireClientCompletion or {}
 for _, questID in ipairs({ 4285, 4287, 4288 }) do
   pfDB.quests.requireClientCompletion[questID] = true
 end
+
+-- Bilemaw is summoned at the Felstone cauldron trigger (NPC11152), not a
+-- persistent creature spawn. Server western_plaguelands.cpp maps it to5216/5229.
+local bilemawUnits = pfDB.units["data-turtle"] or pfDB.units.data
+local bilemaw = bilemawUnits and bilemawUnits[11075]
+if type(bilemaw) ~= "table" and pfDB.units.data then bilemaw = pfDB.units.data[11075] end
+if type(bilemaw) == "table" then bilemaw.coords = { { 37.1, 57.2, 28 } } end
+
+-- The Boran Family: deliver letters to the brothers, not hidden quest triggers.
+local boranQuest = pfDB.quests["data-turtle"] and pfDB.quests["data-turtle"][40141]
+  or pfDB.quests.data and pfDB.quests.data[40141]
+if type(boranQuest) == "table" then
+  boranQuest.obj = boranQuest.obj or {}
+  boranQuest.obj.U = { 1242, 92936 }
+end
+
+-- Delivery credit uses scripted objective text rather than the NPC's name.
+pfDB.quests.talkObjectives = pfDB.quests.talkObjectives or {}
+pfDB.quests.talkObjectives[40141] = { [1242] = 1, [92936] = 2 }

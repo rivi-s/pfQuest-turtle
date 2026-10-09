@@ -495,6 +495,17 @@ WorldMapButton.SetScale = function(frame, scale)
     OnMapScaleChanged(frame, scale, originalWorldMapButton_SetScale)
 end
 
+-- Share expensive native input queries across dense continent pin sets.
+local interactionInputAt, interactionControl, interactionX, interactionY = 0, false, 0, 0
+local function ReadContinentInteractionInput(now)
+    if now >= interactionInputAt then
+        interactionInputAt = now + 0.05
+        interactionControl = IsControlKeyDown()
+        interactionX, interactionY = GetCursorPosition()
+    end
+    return interactionControl, interactionX, interactionY
+end
+
 local function ConfigureContinentPinInteraction(pin, force)
     local clickThrough = pfQuest_config["continentClickThrough"] == "1"
     if not force and pin.clickThrough == clickThrough then return end
@@ -511,7 +522,12 @@ local function ConfigureContinentPinInteraction(pin, force)
             end
         end)
         pin:SetScript("OnUpdate", function()
-            if IsControlKeyDown() then
+            local now = GetTime()
+            if now < (this.interactionAt or 0) then return end
+            this.interactionAt = now + 0.05
+            if not this:IsVisible() then return end
+            local control, x, y = ReadContinentInteractionInput(now)
+            if control then
                 if not this.mouseEnabled then
                     this:EnableMouse(true)
                     this:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -523,8 +539,6 @@ local function ConfigureContinentPinInteraction(pin, force)
                 this.mouseEnabled = false
             end
 
-            if not this:IsVisible() then return end
-            local x, y = GetCursorPosition()
             local scale = this:GetEffectiveScale()
             x, y = x / scale, y / scale
             local left, right, top, bottom = this:GetLeft(), this:GetRight(), this:GetTop(), this:GetBottom()
@@ -729,11 +743,18 @@ local function ThinContinentItemNode(processedQuests, node, continent, x, y)
     local keys = GetContinentItemKeys(node)
     if not keys then return false end
 
+    -- Purple Lotus has thousands of world-drop sources. Keep its continent
+    -- overview sparse; zone and minimap nodes are never filtered here.
+    local spacing = continentItemSpacing
+    for _, data in pairs(node) do
+        if data.itemid == 8831 or data.item == "Purple Lotus" then spacing = 0.04 end
+    end
+
     processedQuests.itemDensityBuckets = processedQuests.itemDensityBuckets or {}
     processedQuests.itemDensityBuckets[continent] = processedQuests.itemDensityBuckets[continent] or {}
     local continentBuckets = processedQuests.itemDensityBuckets[continent]
-    local cellX = math.floor(x / continentItemSpacing)
-    local cellY = math.floor(y / continentItemSpacing)
+    local cellX = math.floor(x / spacing)
+    local cellY = math.floor(y / spacing)
     local allCovered = true
 
     for _, key in pairs(keys) do
@@ -745,7 +766,7 @@ local function ThinContinentItemNode(processedQuests, node, continent, x, y)
                     local previous = itemBuckets[(cellX + offsetX) .. ":" .. (cellY + offsetY)]
                     if previous then
                         local dx, dy = previous.x - x, previous.y - y
-                        if dx * dx + dy * dy < continentItemSpacing * continentItemSpacing then
+                        if dx * dx + dy * dy < spacing * spacing then
                             covered = true
                             break
                         end

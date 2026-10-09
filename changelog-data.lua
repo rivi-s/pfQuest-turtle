@@ -2,6 +2,12 @@
 if not pfQuestChangelog then return end
 -- Published history and explicitly labeled development notes.
 pfQuestChangelog:Register("pfQuest-turtle", {
+{ ["version"] = "1.0.35", ["date"] = "2026-10-08", ["notes"] = {
+"Improved continent-map performance with dense objectives.",
+"Made Purple Lotus continent markers sparser while preserving full zone-map and minimap coverage.",
+"Added Q40141 delivery targets Karl and Samual with talk markers that clear after delivery.",
+"Added Q5216 summoned key-source location."
+} },
 { ["version"] = "1.0.34", ["date"] = "2026-10-06", ["notes"] = {
 "Fixed Trees & Wood tracking errors in the non-HDB edition.",
 "Use with pfQuest 8.0.47 for the login-stall fix; tracker progress and tree tracking confirmed in game."

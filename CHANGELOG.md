@@ -1,5 +1,12 @@
 # pfQuest Turtle patch notes
 
+## 1.0.35 — 2026-10-08
+
+- Improved continent-map performance with dense objectives.
+- Made Purple Lotus continent markers sparser while preserving full zone-map and minimap coverage.
+- Added Q40141 delivery targets Karl and Samual with talk markers that clear after delivery.
+- Added Q5216 summoned key-source location.
+
 ## 1.0.34 — 2026-10-06
 
 - Fixed Trees & Wood tracking errors in the non-HDB edition.
