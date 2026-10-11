@@ -1,5 +1,11 @@
 # pfQuest Turtle patch notes
 
+## 1.0.36 — 2026-10-10
+
+- Quest-category filters refresh when saved; tooltips explain the repeatable-quest requirement.
+- Party marker settings refresh cached party data and routing immediately.
+- Loot-panel settings refresh an already open panel.
+
 ## 1.0.35 — 2026-10-08
 
 - Improved continent-map performance with dense objectives.

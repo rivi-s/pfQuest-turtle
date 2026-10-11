@@ -1169,6 +1169,29 @@ function pfMap:UpdateNodes()
     StartContinentRender(continent, viewKey)
 end
 
+-- Apply projection-only settings without reloading quest data.
+function pfMap:ApplyContinentSettings(changes)
+    if changes.size then
+        for i = 1, maxContinentPins do
+            if continentPins[i] then ResizeContinentNode(continentPins[i]) end
+        end
+    end
+    if changes.visibility then
+        continentRenderLastKey = nil
+        continentRenderLastAt = 0
+        -- Continent visibility must not hide city projections on zone maps.
+        if WorldMapFrame:IsShown() and GetCurrentMapZone() == 0 then
+            if pfQuest_config.continentPins == "0" then
+                for i = 1, maxContinentPins do
+                    if continentPins[i] then HideContinentPin(continentPins[i]) end
+                end
+            else
+                self:UpdateNodes()
+            end
+        end
+    end
+end
+
 local continentPollFrame = CreateFrame("Frame")
 local continentPollElapsed = 0
 local lastPolledContinent, lastPolledZone
@@ -1215,10 +1238,10 @@ local function ExtendPfQuestConfig()
     table.insert(pfQuest_defconfig, { text = "Continent Utility Node Size", default = "14", type = "text", config = "continentUtilityNodeSize" })
 
     table.insert(pfQuest_defconfig, { text = "Quest Filters", type = "header", page = "map" })
-    table.insert(pfQuest_defconfig, { text = "Hide Chicken Quests (CLUCK!)", default = "1", type = "checkbox", config = "hideChickenQuests" })
-    table.insert(pfQuest_defconfig, { text = "Hide Felwood Corrupted Flowers", default = "1", type = "checkbox", config = "hideFelwoodFlowers" })
-    table.insert(pfQuest_defconfig, { text = "Hide PvP/Battleground Quests", default = "1", type = "checkbox", config = "hidePvPQuests" })
-    table.insert(pfQuest_defconfig, { text = "Hide Cloth Donation Quests", default = "0", type = "checkbox", config = "hideDonationQuests" })
+    table.insert(pfQuest_defconfig, { text = "Hide Chicken Quests (CLUCK!)", default = "1", type = "checkbox", config = "hideChickenQuests", tooltip = "CLUCK! is marked repeatable. To show it, also enable Display Repeatable Quests. Level and quest requirements still apply." })
+    table.insert(pfQuest_defconfig, { text = "Hide Felwood Corrupted Flowers", default = "1", type = "checkbox", config = "hideFelwoodFlowers", tooltip = "Unhiding this category does not override other quest filters. Enable Display Repeatable Quests to see its repeatable quests; level and quest requirements still apply." })
+    table.insert(pfQuest_defconfig, { text = "Hide PvP/Battleground Quests", default = "1", type = "checkbox", config = "hidePvPQuests", tooltip = "Unhiding this category does not override other quest filters. Enable Display Repeatable Quests to see its repeatable quests; level and quest requirements still apply." })
+    table.insert(pfQuest_defconfig, { text = "Hide Cloth Donation Quests", default = "0", type = "checkbox", config = "hideDonationQuests", tooltip = "Unhiding this category does not override other quest filters. Enable Display Repeatable Quests to see its repeatable quests; level and quest requirements still apply." })
 
     pfQuest_config["continentPins"] = pfQuest_config["continentPins"] or "1"
     -- Existing installs defaulted to direct pin clicks. Migrate once so dense

@@ -499,6 +499,11 @@ function pfQuestLoot.ShowPinned(nodeFrame)
   pfQuestLoot.lastShowTrace = "shown"
 end
 
+-- Reuse the displayed unit and cached source list when filter controls change.
+function pfQuestLoot.ApplySettings()
+  if pinned and pinnedUnitId then pfQuestLoot.RefreshPinned(pinnedUnitId) end
+end
+
 local pendingQualityElapsed = 0
 local itemQueryTooltip
 local itemQueryAttempts = {}

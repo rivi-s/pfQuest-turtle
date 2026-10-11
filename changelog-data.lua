@@ -2,6 +2,11 @@
 if not pfQuestChangelog then return end
 -- Published history and explicitly labeled development notes.
 pfQuestChangelog:Register("pfQuest-turtle", {
+{ ["version"] = "1.0.36", ["date"] = "2026-10-10", ["notes"] = {
+"Quest-category filters refresh when saved; tooltips explain the repeatable-quest requirement.",
+"Party marker settings refresh cached party data and routing immediately.",
+"Loot-panel settings refresh an already open panel."
+} },
 { ["version"] = "1.0.35", ["date"] = "2026-10-08", ["notes"] = {
 "Improved continent-map performance with dense objectives.",
 "Made Purple Lotus continent markers sparser while preserving full zone-map and minimap coverage.",

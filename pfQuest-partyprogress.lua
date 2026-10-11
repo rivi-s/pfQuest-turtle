@@ -766,6 +766,24 @@ local function QueuePartyPinRender()
     end)
 end
 
+-- Config apply must not depend on receiving another party/quest event.
+function pfMap:ApplyPartySettings(changes)
+    if changes.showPartyQuestPins then
+        partyPinRefresh:SetScript("OnUpdate", nil)
+        RenderPartyQuestPins()
+        if pfQuest_config.showPartyQuestPins ~= "1" then
+            for frame in pairs(self.highlightdb or {}) do
+                if frame.addon == "PFPARTY" then frame:Hide() end
+            end
+        end
+    end
+    if pfQuest.route then pfQuest.route:Reset() end
+    self.lastRouteMap = nil
+    self.queue_update = GetTime()
+end
+
+
+
 local function GetClassColor(playerName)
     if playerName == UnitName("player") then
         local _, class = UnitClass("player")
