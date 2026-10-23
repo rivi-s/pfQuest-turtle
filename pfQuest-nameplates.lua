@@ -10,6 +10,10 @@ local BAG_ICON = "Interface\\AddOns\\pfQuest-turtle\\img\\loot"
 local NAMEPLATE_BORDER = "Interface\\Tooltips\\Nameplate-Border"
 local NAME_REGION_INDEX = 3
 
+local function MeetsDropThreshold(chance)
+    return (tonumber(chance) or 0) >= (tonumber(pfQuest_config and pfQuest_config.mindropchance) or 0)
+end
+
 local function ScanQuestObjectives()
     questObjectives = {}
 
@@ -134,7 +138,7 @@ local function ScanQuestObjectives()
 
                             if itemData["U"] then
                                 for unitId, dropRate in pairs(itemData["U"]) do
-                                    if pfDB["units"] and pfDB["units"]["enUS"] and pfDB["units"]["enUS"][unitId] then
+                                    if MeetsDropThreshold(dropRate) and pfDB["units"] and pfDB["units"]["enUS"] and pfDB["units"]["enUS"][unitId] then
                                         local npcName = pfDB["units"]["enUS"][unitId]
 
                                         for _, activeObj in ipairs(activeObjectives) do

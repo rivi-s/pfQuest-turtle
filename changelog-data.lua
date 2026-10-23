@@ -2,6 +2,14 @@
 if not pfQuestChangelog then return end
 -- Published history and explicitly labeled development notes.
 pfQuestChangelog:Register("pfQuest-turtle", {
+{ ["version"] = "1.0.39", ["date"] = "2026-10-23", ["notes"] = {
+"Corrected Weapons of Spirit to require both prerequisite branches.",
+"Restored Family Above All hut/nest markers and Lard Lost His Lunch basket marker.",
+"Linked Seeping Corruption vials to their individual tide pools.",
+"Added all four Poisoned Water transformation targets and Aspect of Neptulon use links.",
+"Added the reported Moonglade mailbox location and removed Grazle's obsolete northern positions.",
+"Nameplate loot icons now respect the configured minimum drop chance."
+} },
 { ["version"] = "1.0.38", ["date"] = "2026-10-18", ["notes"] = {
 "Restored Bloodsail Correspondence as the turn-in for The Bloodsail Buccaneers (595) and the start of its follow-up (597).",
 "Added Tanaris map positions for Sandmoon Village NPCs while preserving their Thousand Needles positions.",

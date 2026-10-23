@@ -758,3 +758,146 @@ do
   if quests and type(quests[595]) == "table" then quests[595]["end"] = { O = { 2083 } } end
   if quests and type(quests[597]) == "table" then quests[597].start = { O = { 2083 } } end
 end
+
+-- Weapons of Spirit requires both the Muisek chain and Natural Materials.
+-- A plain pre list means either branch; retain an explicit all-required gate.
+pfDB.quests.preall = pfDB.quests.preall or {}
+pfDB.quests.preall[3129] = { 3127, 3128 }
+do
+  local quests = pfDB.quests["data-turtle"]
+  if quests and type(quests[3129]) == "table" then
+    quests[3129].preall = pfDB.quests.preall[3129]
+  end
+end
+
+-- Family Above All uses invisible credit triggers in the export. The player
+-- interacts with these two objects; the triggers have no drawable spawns.
+do
+  local quests = pfDB.quests and pfDB.quests["data-turtle"]
+  if quests and type(quests[40541]) == "table" then
+    quests[40541].obj = { O = { 2010918, 2010919 } }
+  end
+  local objects = pfDB.objects and pfDB.objects["data-turtle"]
+  for id, xy in pairs({ [2010918] = {82.4, 52.3}, [2010919] = {82.5, 52.4} }) do
+    local original = objects and objects[id]
+    if type(original) == "table" then
+      local copy = {}
+      for key, value in pairs(original) do copy[key] = value end
+      copy.coords = {}
+      for _, coord in ipairs(original.coords or {}) do
+        if coord[3] == 47 then
+          table.insert(copy.coords, {xy[1], xy[2], 47, coord[4]})
+        else
+          table.insert(copy.coords, coord)
+        end
+      end
+      objects[id] = copy
+    end
+  end
+end
+
+-- Lard's kidnappers are summoned by the basket and have no static spawns.
+-- Retain the lunch drop objective and mark the interaction that summons them.
+do
+  local quests = pfDB.quests and pfDB.quests["data-turtle"]
+  if quests then
+    if type(quests[7840]) ~= "table" then quests[7840] = {} end
+    quests[7840].obj = { I = {19034}, O = {179910} }
+  end
+  local objects = pfDB.objects and pfDB.objects["data-turtle"]
+  local original = objects and objects[179910]
+  if type(original) ~= "table" then
+    original = pfDB.objects and pfDB.objects.data and pfDB.objects.data[179910]
+  end
+  if objects and type(original) == "table" then
+    local copy = {}
+    for key, value in pairs(original) do copy[key] = value end
+    copy.coords = {}
+    for _, coord in ipairs(original.coords or {}) do
+      if coord[3] == 47 then
+        table.insert(copy.coords, {84.4, 41.2, 47, coord[4]})
+      else
+        table.insert(copy.coords, coord)
+      end
+    end
+    objects[179910] = copy
+  end
+end
+
+-- Filled sampling vials are created at spell-focus pools, not dropped by mobs.
+-- Link each item separately so completed samples stop showing their pool pin.
+do
+  local items = pfDB.items and pfDB.items["data-turtle"]
+  for item, object in pairs({[10691]=152598, [10692]=152604, [10693]=152605, [10694]=152606}) do
+    if items then
+      local original = items[item]
+      if type(original) ~= "table" then original = pfDB.items.data and pfDB.items.data[item] end
+      local copy = {}
+      for key, value in pairs(type(original) == "table" and original or {}) do copy[key] = value end
+      copy.O = {}
+      for id, chance in pairs(type(original) == "table" and original.O or {}) do copy.O[id] = chance end
+      copy.O[object] = 100
+      items[item] = copy
+    end
+  end
+end
+
+-- Player-confirmed Nighthaven mailbox, missing from the extracted spawns.
+-- Reuse the tracked night elf mailbox template; this is a location correction.
+do
+  local objects = pfDB.objects and pfDB.objects["data-turtle"]
+  local original = objects and objects[142109]
+  if type(original) ~= "table" then original = pfDB.objects and pfDB.objects.data and pfDB.objects.data[142109] end
+  if objects and type(original) == "table" then
+    local copy, found = {}, false
+    for key, value in pairs(original) do copy[key] = value end
+    copy.coords = {}
+    for _, coord in ipairs(original.coords or {}) do
+      table.insert(copy.coords, coord)
+      if coord[1] == 51.7 and coord[2] == 40.5 and coord[3] == 493 then found = true end
+    end
+    if not found then table.insert(copy.coords, {51.7, 40.5, 493, 0}) end
+    objects[142109] = copy
+  end
+end
+
+-- Poisoned Water transforms these static elementals into Discordant Surges.
+-- Keep the bracers' real drop source and mark where Aspect of Neptulon is used.
+do
+  local quests = pfDB.quests and pfDB.quests["data-turtle"]
+  if quests then
+    if type(quests[6804]) ~= "table" then
+      quests[6804] = {}
+      for key, value in pairs(pfDB.quests.data and pfDB.quests.data[6804] or {}) do quests[6804][key] = value end
+    end
+    quests[6804].obj = { I = {17309}, U = {8519, 8520, 8521, 8522} }
+  end
+  local requirements = pfDB["quests-itemreq"] and pfDB["quests-itemreq"]["data-turtle"]
+  if requirements then
+    local original = requirements[17310]
+    if type(original) ~= "table" then original = pfDB["quests-itemreq"].data and pfDB["quests-itemreq"].data[17310] end
+    local copy = {}
+    for key, value in pairs(type(original) == "table" and original or {}) do copy[key] = value end
+    copy[8519], copy[8520], copy[8521], copy[8522] = 0, 0, 0, 0
+    requirements[17310] = copy
+  end
+end
+
+-- Grazle moved to southern Felwood; the old northern/Winterspring positions
+-- now belong to Nafien. Retain only Grazle's current Emerald Sanctuary spawn.
+do
+  local units = pfDB.units and pfDB.units["data-turtle"]
+  local original = units and units[11554]
+  if type(original) ~= "table" then original = pfDB.units and pfDB.units.data and pfDB.units.data[11554] end
+  if units and type(original) == "table" then
+    local copy = {}
+    for key, value in pairs(original) do copy[key] = value end
+    copy.coords = {}
+    for _, coord in ipairs(original.coords or {}) do
+      if coord[3] == 361 and coord[1] == 50.9 and coord[2] == 85 then
+        table.insert(copy.coords, coord)
+      end
+    end
+    if copy.coords[1] then units[11554] = copy end
+  end
+end
