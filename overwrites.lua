@@ -901,3 +901,64 @@ do
     if copy.coords[1] then units[11554] = copy end
   end
 end
+
+-- November player reports: convergence gates and alternate introduction offers.
+pfDB.quests.preall = pfDB.quests.preall or {}
+for id, required in pairs({ [40424] = {40422, 40423}, [4321] = {4285, 4287, 4288} }) do
+  pfDB.quests.preall[id] = required
+  local quests = pfDB.quests["data-turtle"]
+  if quests and type(quests[id]) == "table" then quests[id].preall = required end
+end
+pfDB.quests.exclusive = pfDB.quests.exclusive or {}
+for _, group in ipairs({
+  {5066, 5090, 5091}, {5093, 5094, 5095},
+  {1000, 1004, 1018}, {1015, 1019, 1047},
+}) do
+  for _, id in ipairs(group) do pfDB.quests.exclusive[id] = group end
+end
+
+do
+  local quests = pfDB.quests["data-turtle"]
+  if quests then
+    for quest, object in pairs({ [4285] = 164955, [4287] = 164957, [4288] = 164956 }) do
+      if type(quests[quest]) == "table" then quests[quest].obj = { O = {object} } end
+    end
+    if type(quests[2936]) == "table" then
+      quests[2936].obj = { O = {142715} }
+      quests[2936]["end"] = { U = {3188} }
+    end
+  end
+  local objects = pfDB.objects and pfDB.objects["data-turtle"]
+  for id, xy in pairs({ [164955]={56.5,12.5}, [164957]={77.1,50.0}, [164956]={23.8,59.2} }) do
+    local old = objects and objects[id]
+    if type(old) ~= "table" then old = pfDB.objects and pfDB.objects.data and pfDB.objects.data[id] end
+    if objects and type(old) == "table" then
+      local copy = {}
+      for k,v in pairs(old) do copy[k] = v end
+      copy.coords = {{xy[1], xy[2], 490, 2}}
+      objects[id] = copy
+    end
+  end
+end
+
+do
+  local units = pfDB.units and pfDB.units["data-turtle"]
+  -- Same world position, expressed on the map from which Stagalbog is reached.
+  local old = units and units[950]
+  if type(old) ~= "table" then old = pfDB.units and pfDB.units.data and pfDB.units.data[950] end
+  if units and type(old) == "table" then
+    local copy = {}
+    for k,v in pairs(old) do copy[k] = v end
+    copy.coords = {{62.67, 88.14, 8, 300}}
+    units[950] = copy
+  end
+  if units then
+    units[63051] = { lvl=55, rnk=1, fac="H", coords={{65.3,38.6,5642,0}} }
+    units[63048] = { fac="H", coords={{65.2,66.8,5642,0}} }
+  end
+  local meta = pfDB["meta-turtle"]
+  if meta then
+    meta.flight = meta.flight or {}
+    meta.flight[63051], meta.flight[63048] = "H", "H"
+  end
+end

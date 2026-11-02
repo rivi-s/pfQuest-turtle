@@ -6254,4 +6254,6 @@ pfDB["units"]["enUS-turtle"] = {
   [63138] = "Frostmane Berserker",
   [63139] = "Frostmane Pathfinder",
   [93353] = "Alliance Spirit Battle Healer",
+  [63051] = "Sol Greycloud",
+  [63048] = "Z'ahk",
 }
