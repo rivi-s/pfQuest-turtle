@@ -6256,4 +6256,7 @@ pfDB["units"]["enUS-turtle"] = {
   [93353] = "Alliance Spirit Battle Healer",
   [63051] = "Sol Greycloud",
   [63048] = "Z'ahk",
+  [62850] = "Moro'gai K'la",
+  [62975] = "Innkeeper Warmbreeze",
+  [62861] = "Cook Rem'sai",
 }

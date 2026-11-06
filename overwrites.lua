@@ -962,3 +962,351 @@ do
     meta.flight[63051], meta.flight[63048] = "H", "H"
   end
 end
+
+-- The Maul'Ogg Crisis III uses an invisible credit trigger. Guide the player
+-- to the NPC they must speak with, keeping Haz'gorg as the return location.
+do
+  local quests = pfDB.quests and pfDB.quests["data-turtle"]
+  if quests and type(quests[40266]) == "table" then
+    quests[40266].obj = { U = {91854} }
+  end
+end
+
+-- Avenging the Fallen is not offered again after completion on Raven.
+-- Its imported repeatable flag otherwise bypasses completed quest history.
+if pfDB.quests and pfDB.quests.repeatable then
+  pfDB.quests.repeatable[7830] = nil
+end
+
+-- Moonwhisper Coast player reports, checked against the Raven web database.
+-- Keep item objectives so completed collections remove their own source pins.
+do
+  local function Copy(t)
+    local out = {}
+    for k,v in pairs(t or {}) do out[k] = v end
+    return out
+  end
+  local function Record(db, id)
+    local data = pfDB[db]
+    local overlay = data and data["data-turtle"]
+    if not overlay then return end
+    local old = overlay[id]
+    if type(old) ~= "table" then old = data.data and data.data[id] end
+    local record = Copy(type(old) == "table" and old or nil)
+    overlay[id] = record
+    return record
+  end
+  local function Source(item, kind, target, chance)
+    local record = Record("items", item)
+    if not record then return end
+    record[kind] = Copy(record[kind])
+    record[kind][target] = chance
+  end
+  Source(42280, "O", 2020327, 100) -- Mothsilk Cocoon
+  Source(42140, "O", 2020265, 100) -- Maghan's Cargo
+  Source(42278, "O", 2020326, 100) -- Scroll of Lo'sho
+  Source(42000, "O", 2020319, 50)  -- Moonwhisper Berry Bush
+  Source(42305, "U", 63008, 50)    -- Moonwhisper Elekk
+  Source(42304, "U", 62998, 100)   -- Matriarch Ohanzee
+  Source(42301, "O", 2020334, 100) -- Glowing Snow Mound
+  for _, object in ipairs({2020322,2020323,2020324,2020325}) do
+    Source(42274, "O", object, 100) -- Maras'ethil Relic containers
+  end
+
+  -- Complete web-map spawn lists. The formation list replaces the misplaced
+  -- western cluster and includes the missing northern coast spawns.
+  local function Spawns(db, id, map, respawn, points)
+    local record = Record(db, id)
+    if not record then return end
+    record.coords = {}
+    for _, point in ipairs(points) do
+      table.insert(record.coords, {point[1],point[2],map,respawn})
+    end
+  end
+  Spawns("objects", 2020264, 5642, 0, {
+    {58.91,48.89},
+    {59.74,48.33},
+    {59.7,47.36},
+    {59,47.02},
+    {59.66,45.35},
+    {59.19,46.01},
+    {60.28,46.39},
+    {60.25,45.31},
+    {60.07,45.5},
+    {60.37,47.9},
+  })
+  Spawns("units", 63036, 5642, 5, {
+    {64.76,43.29},
+    {65.81,47.16},
+    {63.61,38.84},
+    {64.18,37.21},
+    {63.14,36.21},
+    {62.57,37.26},
+    {62.09,38.28},
+    {61.36,36.74},
+    {61.14,35.57},
+    {62.78,33.92},
+    {60.09,34.9},
+    {58.97,35.43},
+    {59.04,33.34},
+    {58.68,31.73},
+    {60.2,32.89},
+    {59.5,32.31},
+    {57.88,31.28},
+    {56.91,36.89},
+    {57.37,38.33},
+    {57.45,39.91},
+    {58.43,38.86},
+    {59.19,40.26},
+    {58.26,40.08},
+    {55.91,37.85},
+    {53.62,33.51},
+    {53.76,30.36},
+    {55.11,30.95},
+    {56.46,30.58},
+    {54.92,28.7},
+    {56.01,25.38},
+    {53.05,22.79},
+    {51.66,22.24},
+    {50.1,22.27},
+    {49.95,23.8},
+    {49.24,24.59},
+    {51.33,27.49},
+    {50.11,30.25},
+    {47.21,18.53},
+    {45.13,18.08},
+    {40.84,17.04},
+    {38.79,17.84},
+    {37.86,18.48},
+    {49.12,26.95},
+    {58.07,28.22},
+    {59.36,27.98},
+    {55.48,27.02},
+    {54.73,23.49},
+    {52.27,22.1},
+    {48.29,21.27},
+    {48.46,23.67},
+  })
+  Spawns("objects", 2020319, 5642, 0, {
+    {60.86,39.47},
+    {60.96,37.47},
+    {62.93,38.1},
+    {64.17,36.01},
+    {61.32,31.58},
+    {59.78,29.42},
+    {57.23,28.21},
+    {55.48,25.5},
+    {54.43,23.36},
+    {50.7,24.92},
+    {49.19,26.31},
+    {45.54,24.93},
+    {41.5,20.81},
+    {42.34,17.79},
+    {44.93,18.34},
+    {48.17,20.51},
+    {50.28,21.49},
+    {53.25,22.23},
+    {52.43,28.99},
+    {54.58,33.71},
+    {57.2,35.88},
+    {58.65,40.72},
+    {63.97,42.6},
+    {66.14,46.17},
+    {63.13,44.79},
+    {61.5,46.8},
+    {60.08,45.22},
+    {60.22,43.24},
+  })
+  Spawns("objects", 2020334, 618, 0, {
+    {63.55,59.45},
+    {64.4,60.07},
+    {65.17,59.67},
+    {66.14,60.41},
+    {65.52,60.6},
+    {65.23,62.15},
+    {65.65,63.3},
+    {65.19,64.16},
+    {64.32,62.6},
+    {64.92,64.53},
+    {65.87,59.41},
+  })
+  Spawns("objects", 2020266, 5642, 0, {
+    {53.96,88.75},
+    {54.61,91.98},
+    {53.3,97.2},
+    {56.89,91.87},
+    {55.02,87.64},
+    {56.95,85.82},
+    {59.34,88.78},
+    {59.99,87.22},
+    {63.78,85.75},
+    {62.51,82.06},
+    {60.07,81.37},
+    {58.27,77.93},
+    {59.54,74.66},
+    {55.89,79.67},
+    {55.54,80.82},
+    {55.44,75.6},
+    {56.58,72.28},
+    {56.17,71.43},
+    {57.61,68.55},
+    {63.36,75.23},
+    {64.94,79.9},
+    {67.4,74.83},
+    {65.79,71.7},
+    {70.76,66.85},
+    {68.04,65.97},
+    {66.75,65.37},
+    {67.06,63.39},
+    {73.19,61.58},
+    {67.4,58.83},
+    {66.81,61.42},
+    {64.74,62.73},
+    {61.32,63.52},
+    {59.6,64.95},
+    {58.3,66.01},
+    {54.36,63.19},
+    {57.78,52.83},
+    {60.29,54.27},
+    {63.59,53.98},
+    {65.55,55.32},
+    {68.62,57.34},
+    {72,55.31},
+    {73.75,54.6},
+    {66.03,50},
+    {60.97,49.31},
+    {58.86,48.88},
+    {60.04,45.6},
+    {61.12,42.63},
+    {64.32,44.81},
+    {63.46,46.43},
+    {67.35,46.88},
+    {63.39,37.05},
+    {60.32,34.7},
+    {58.9,30.19},
+    {57.09,34.9},
+    {58.59,41.67},
+    {54.13,37.1},
+    {53.64,28.31},
+    {53.14,25.03},
+    {47.55,33.99},
+    {47.65,29.36},
+    {45.82,28.87},
+    {43.76,28.88},
+    {40.96,26.84},
+    {40.06,24.7},
+    {42.43,20.67},
+    {46.18,20.23},
+    {47.76,24.74},
+    {49.35,20.31},
+    {54.06,12.71},
+    {50.21,5.49},
+    {47.94,5.05},
+  })
+
+  -- Add service locations without replacing any other-zone mailbox spawns.
+  local function Mailbox(id, x, y)
+    local record = Record("objects", id)
+    if not record then return end
+    record.coords = Copy(record.coords)
+    for _, coord in pairs(record.coords) do
+      if coord[3] == 5642 and math.abs(coord[1]-x) < .05
+        and math.abs(coord[2]-y) < .05 then return end
+    end
+    table.insert(record.coords, {x,y,5642,0})
+  end
+  Mailbox(173221, 63.7, 66.4)
+  Mailbox(143983, 66.9, 36.7)
+
+  local chief = Record("units", 62850)
+  if chief then
+    chief.lvl, chief.rnk, chief.fac = 60, 1, "AH"
+    chief.coords = {{60.91,65.19,5642,0}}
+  end
+  local warmbreeze = Record("units", 62975)
+  if warmbreeze then
+    warmbreeze.lvl, warmbreeze.fac = 53, "AH"
+    warmbreeze.coords = {{66.9,36.2,5642,0}}
+  end
+  local pli = Record("units", 62854)
+  if pli then
+    pli.lvl, pli.fac = 50, "AH"
+    pli.coords = {{64.9,66.7,5642,120}}
+  end
+  local quest = Record("quests", 41910)
+  if quest then quest.start = {U={62850}} end
+
+  local meta = pfDB["meta-turtle"]
+  if meta then
+    meta.innkeeper = meta.innkeeper or {}
+    meta.innkeeper[62854], meta.innkeeper[62975] = "AH", "AH"
+    meta.mailbox = meta.mailbox or {}
+    meta.mailbox[-173221], meta.mailbox[-143983] = "AH", "AH"
+  end
+end
+
+-- Moonwhisper follow-up: restore quest giver and material links from Raven.
+do
+  local function Copy(t)
+    local out = {}
+    for k,v in pairs(t or {}) do out[k] = v end
+    return out
+  end
+  local function Record(db, id)
+    local data = pfDB[db]
+    local overlay = data and data["data-turtle"]
+    if not overlay then return end
+    local old = overlay[id]
+    if type(old) ~= "table" then old = data.data and data.data[id] end
+    local record = Copy(type(old) == "table" and old or nil)
+    overlay[id] = record
+    return record
+  end
+  local cook = Record("units", 62861)
+  if cook then
+    cook.lvl, cook.fac = 48, "AH"
+    cook.coords = {{63.12,66.0,5642,0}}
+  end
+  local omen = Record("quests", 41912)
+  if omen then
+    omen.start, omen["end"] = {U={62986}}, {U={62920}}
+    -- Ral'pekta's gossip starts the scripted Crystal Entity encounter here.
+    omen.obj = {U={62920}}
+  end
+  local divination = Record("quests", 41913)
+  if divination then
+    divination.start, divination["end"] = {U={62920}}, {U={62920}}
+    divination.obj = {I={42134,42135,8831,42001}}
+  end
+  local secrets = Record("quests", 42079)
+  if secrets then secrets.class = 16 end -- Priest; retain the Tauren race mask.
+
+  local function Source(item, kind, id, chance)
+    local record = Record("items", item)
+    if not record then return end
+    record[kind] = Copy(record[kind])
+    record[kind][id] = chance
+  end
+  Source(42134, "U", 62815, 35) -- Arcane Bark
+  for _, unit in ipairs({62887,62888,62889,62890,62891}) do
+    Source(42135, "U", unit, 20) -- Highborne Fragment
+  end
+  Source(42001, "O", 2020266, 100) -- Draenethyst Formation
+  Source(42001, "O", 2020258, 100) -- Stormwrought Crystal (no static spawns)
+  Source(42385, "U", 63067, 100) -- Half-Burnt Scroll; Tauren priest quest
+end
+
+-- Hara'ne sends the player to Azh'okar; the elders' finale returns to K'la.
+do
+  local quests = pfDB.quests and pfDB.quests["data-turtle"]
+  if quests then
+    if type(quests[41918]) == "table" then
+      quests[41918].start = {U={62993}}
+    end
+    if type(quests[41916]) == "table" then
+      quests[41916].start = {U={62850}}
+      quests[41916].obj = {U={62992}}
+      quests[41916]["end"] = {U={62850}}
+    end
+  end
+end
