@@ -243,6 +243,9 @@ do -- quests
   -- Missing item objective for quest The Plaguewood (https://octowow.st/db/?quest=41942)
   pfDB["quests"]["data-turtle"][41942]["obj"] = { ["I"] = { 42212, 42213 } }
 
+  -- Missing Pre-Quest for Covert Ops - Beta (https://octowow.st/db/?quest=1080)
+  pfDB["quests"]["data-turtle"][1080]["pre"] = { 1079 }
+
 end
 
 -- Explicit profession ranks from the Turtle server quest templates.
