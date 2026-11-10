@@ -34,6 +34,9 @@ do -- items
 
   -- Change item drop rate to 100% for Dark Iron Aggression (https://octowow.st/db/?quest=41905)
   pfDB["items"]["data-turtle"][42072]["O"] = { [2020263] = 100 }
+
+  -- Disable vendor sale for Simple Wood
+  pfDB["items"]["data-turtle"][4470] = { ["O"] = { [2020267] = 1, [2020268] = 1, [2020269] = 1, [2020270] = 1, [2020271] = 1, [2020272] = 1, [2020273] = 1, [2020274] = 1, [2020275] = 1, [2020276] = 1, [2020277] = 1, [2020278] = 1, [2020279] = 1, [2020280] = 1, [2020281] = 1, [2020301] = 1 } }
 end
 
 do -- item use requirements
