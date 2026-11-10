@@ -246,6 +246,9 @@ do -- quests
   -- Missing Pre-Quest for Covert Ops - Beta (https://octowow.st/db/?quest=1080)
   pfDB["quests"]["data-turtle"][1080]["pre"] = { 1079 }
 
+  -- Fix pointing to correct NPC for Sleepwalking at Day (https://octowow.st/db/?quest=40567)
+  pfDB["quests"]["data-turtle"][40567]["obj"]["U"] = { 52017 }
+
 end
 
 -- Explicit profession ranks from the Turtle server quest templates.
