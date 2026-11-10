@@ -20,6 +20,10 @@ do -- items
   -- corresponding tower captain.
   pfDB["items"]["data-turtle"][60602]["U"] = { [60729] = 100 }
   pfDB["items"]["data-turtle"][60603]["U"] = { [60730] = 100 }
+
+  -- Change items drop rate for The Plaguewood (https://octowow.st/db/?quest=41942) from 1% to 100% according to octowow's DB
+  pfDB["items"]["data-turtle"][42212]["U"] = { [8523] = 100, [8524] = 100, [8525] = 100, [8530] = 100, [8543] = 100, [62337] = 100 }
+  pfDB["items"]["data-turtle"][42213]["O"] = { [2020311] = 100 }
 end
 
 do -- item use requirements
