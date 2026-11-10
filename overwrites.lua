@@ -31,6 +31,9 @@ do -- items
 
   -- Update cragtusk boar to drop chunk of meat for quest Dwindling Supplies (https://octowow.st/db/?quest=40136)
   pfDB["items"]["data-turtle"][60196] = { ["U"] = { [1191] = 100, [91987] = 100 } }
+
+  -- Change item drop rate to 100% for Dark Iron Aggression (https://octowow.st/db/?quest=41905)
+  pfDB["items"]["data-turtle"][42072]["O"] = { [2020263] = 100 }
 end
 
 do -- item use requirements
