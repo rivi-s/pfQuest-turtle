@@ -28,6 +28,9 @@ do -- items
   -- Fix Belgar & Chief Rnarl's location for Pestering the Pesterhide quest (https://octowow.st/db/?quest=40082)
   pfDB["items"]["data-turtle"][60376] = { ["U"] = { [91716] = 100 } }
   pfDB["items"]["data-turtle"][60377] = { ["U"] = { [91717] = 100 } }
+
+  -- Update cragtusk boar to drop chunk of meat for quest Dwindling Supplies (https://octowow.st/db/?quest=40136)
+  pfDB["items"]["data-turtle"][60196] = { ["U"] = { [1191] = 100, [91987] = 100 } }
 end
 
 do -- item use requirements
