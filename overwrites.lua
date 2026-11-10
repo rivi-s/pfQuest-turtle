@@ -240,6 +240,9 @@ do -- quests
   -- The extractor scripts did not catch those, as the objetive is filled via a Gossip on use.
   pfDB["quests"]["data-turtle"][41682]["obj"]["O"] = { 2020173 }
 
+  -- Missing item objective for quest The Plaguewood (https://octowow.st/db/?quest=41942)
+  pfDB["quests"]["data-turtle"][41942]["obj"] = { ["I"] = { 42212, 42213 } }
+
 end
 
 -- Explicit profession ranks from the Turtle server quest templates.
