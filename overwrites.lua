@@ -1310,3 +1310,66 @@ do
     end
   end
 end
+
+-- Rare tracking excludes curated faction, service and story NPCs, including
+-- opposing-faction quest NPCs that can be attacked.
+-- Keep their actual rank and quest links; no exclusion is based on missing loot.
+do
+  local rares = pfDB["meta-turtle"] and pfDB["meta-turtle"].rares
+  if rares then
+    for _, id in ipairs({
+      15185, -- Brood of Nozdormu: player-immune faction/event entry
+      15197, -- Darkcaller Yanka: player-immune holiday quest giver/vendor
+      16033, -- Bodley: friendly spectral quest giver
+      61586, -- Cenerron: reported friendly quest giver
+      61587, -- Bethelon Wildwhisper: opposing-faction quest giver
+      50677, -- Mavel Brightwood: story quest giver; player-immune on Raven
+      60569, -- Dave "Ozy" Norton: Stormwind city NPC
+      61772, -- Tenris Mirkblood: Alah'Thalas faction leader/gossip NPC
+      80202, -- Kathy Wake: faction quest NPC
+    }) do rares[id] = nil end
+  end
+end
+
+-- November reports: relocated Makya, Hydraxis reward and updated Sanath access.
+do
+  local function Copy(t)
+    local out = {}
+    for k,v in pairs(t or {}) do out[k] = v end
+    return out
+  end
+  local function Record(db, id)
+    local data = pfDB[db]
+    local overlay = data and data["data-turtle"]
+    if not overlay then return end
+    local old = overlay[id]
+    if type(old) ~= "table" then old = data.data and data.data[id] end
+    if type(old) ~= "table" then return end
+    local record = Copy(old)
+    overlay[id] = record
+    return record
+  end
+  local makya = Record("units", 63106)
+  if makya then makya.coords = {{28.2,64.0,357,0}} end
+  local reward = Record("quests", 7486)
+  if reward then
+    reward.pre = {6824}
+    reward["end"] = {O={179551}}
+  end
+  -- Keep the old quest record for history/name resolution, but no longer
+  -- advertise its obsolete feather offer or turn-in at Sanath.
+  local feathers = Record("quests", 3381)
+  if feathers then feathers.start, feathers["end"] = nil, nil end
+  local teleport = Record("quests", 3503)
+  if teleport then teleport.pre = nil end
+
+  -- These are genuine repeatable reagent turn-ins. Unlock each after either
+  -- faction's corresponding one-time Target quest, rather than hiding history.
+  for id, required in pairs({
+    [5218]={5216,5229}, [5221]={5219,5231},
+    [5224]={5222,5233}, [5227]={5225,5235},
+  }) do
+    local quest = Record("quests", id)
+    if quest then quest.pre = required end
+  end
+end
