@@ -20,6 +20,23 @@ do -- items
   -- corresponding tower captain.
   pfDB["items"]["data-turtle"][60602]["U"] = { [60729] = 100 }
   pfDB["items"]["data-turtle"][60603]["U"] = { [60730] = 100 }
+
+  -- Change items drop rate for The Plaguewood (https://octowow.st/db/?quest=41942) from 1% to 100% according to octowow's DB
+  pfDB["items"]["data-turtle"][42212]["U"] = { [8523] = 100, [8524] = 100, [8525] = 100, [8530] = 100, [8543] = 100, [62337] = 100 }
+  pfDB["items"]["data-turtle"][42213]["O"] = { [2020311] = 100 }
+
+  -- Fix Belgar & Chief Rnarl's location for Pestering the Pesterhide quest (https://octowow.st/db/?quest=40082)
+  pfDB["items"]["data-turtle"][60376] = { ["U"] = { [91716] = 100 } }
+  pfDB["items"]["data-turtle"][60377] = { ["U"] = { [91717] = 100 } }
+
+  -- Update cragtusk boar to drop chunk of meat for quest Dwindling Supplies (https://octowow.st/db/?quest=40136)
+  pfDB["items"]["data-turtle"][60196] = { ["U"] = { [1191] = 100, [91987] = 100 } }
+
+  -- Change item drop rate to 100% for Dark Iron Aggression (https://octowow.st/db/?quest=41905)
+  pfDB["items"]["data-turtle"][42072]["O"] = { [2020263] = 100 }
+
+  -- Disable vendor sale for Simple Wood
+  pfDB["items"]["data-turtle"][4470] = { ["O"] = { [2020267] = 1, [2020268] = 1, [2020269] = 1, [2020270] = 1, [2020271] = 1, [2020272] = 1, [2020273] = 1, [2020274] = 1, [2020275] = 1, [2020276] = 1, [2020277] = 1, [2020278] = 1, [2020279] = 1, [2020280] = 1, [2020281] = 1, [2020301] = 1 } }
 end
 
 do -- item use requirements
@@ -222,6 +239,15 @@ do -- quests
   -- Add "Dark Iron Gunpowder Keg" to objectives of "Vile Dwarven Pigs"
   -- The extractor scripts did not catch those, as the objetive is filled via a Gossip on use.
   pfDB["quests"]["data-turtle"][41682]["obj"]["O"] = { 2020173 }
+
+  -- Missing item objective for quest The Plaguewood (https://octowow.st/db/?quest=41942)
+  pfDB["quests"]["data-turtle"][41942]["obj"] = { ["I"] = { 42212, 42213 } }
+
+  -- Missing Pre-Quest for Covert Ops - Beta (https://octowow.st/db/?quest=1080)
+  pfDB["quests"]["data-turtle"][1080]["pre"] = { 1079 }
+
+  -- Fix pointing to correct NPC for Sleepwalking at Day (https://octowow.st/db/?quest=40567)
+  pfDB["quests"]["data-turtle"][40567]["obj"]["U"] = { 52017 }
 
 end
 
